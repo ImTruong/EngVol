@@ -10,7 +10,7 @@ import Review from "@/pages/Review.vue";
 import Statistics from "@/pages/Statistics.vue";
 import AdminMember from "@/pages/AdminMember.vue";
 import AdminClass from "@/pages/AdminClass.vue";
-import AdminSet from "@/pages/AdminSet.vue";
+import Admin from "@/pages/Admin.vue";
 
 
 const router = createRouter({
@@ -75,7 +75,7 @@ const router = createRouter({
         {
             path: "/admin/set",
             name: "adminSet",
-            component: AdminSet
+            component: Admin
         }
     ]
 })
