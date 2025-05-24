@@ -69,7 +69,7 @@ public class SetController {
 
     @PutMapping
     public ResponseEntity<?> updateSet(@Valid @RequestBody UpdateSetRequest setUpdateRequest) {
-        ApiResponse<?> response = new ApiResponse<>(setService.updateSet(setUpdateRequest), "Update Set Successfully");
+        ApiResponse<?> response = new ApiResponse<>(true, "Update Set Successfully", setService.updateSet(setUpdateRequest));
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 

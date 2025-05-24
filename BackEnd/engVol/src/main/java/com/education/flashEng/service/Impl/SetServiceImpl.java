@@ -167,7 +167,7 @@ public class SetServiceImpl implements SetService {
 
     @Transactional
     @Override
-    public boolean updateSet(UpdateSetRequest updateSetRequest) {
+    public SetResponse updateSet(UpdateSetRequest updateSetRequest) {
         UserEntity user = userService.getUserFromSecurityContext();
         SetEntity setEntity = setRepository.findById(updateSetRequest.getSetId())
                 .orElseThrow(() -> new EntityNotFoundWithIdException("SetEntity", updateSetRequest.getSetId().toString()));
@@ -186,7 +186,7 @@ public class SetServiceImpl implements SetService {
                 if(memberEntity.getRoleClassEntity().getName().equals("ADMIN") && memberEntity.getUserEntity().getId().equals(user.getId())){
                     setEntity.setClassEntity(classEntity);
                     setRepository.save(setEntity);
-                    return true;
+                    break;
                 }
             }
             setEntity.setPrivacyStatus(String.valueOf(AccessModifierType.getKeyfromValue("Private")));
@@ -199,7 +199,17 @@ public class SetServiceImpl implements SetService {
             setEntity.setClassEntity(null);
             setRepository.save(setEntity);
         }
-        return true;
+        SetResponse setResponse = modelMapper.map(setEntity, SetResponse.class);
+        setResponse.setUserDetailResponse(
+                user.getFullName(),
+                user.getUsername(),
+                user.getEmail(),
+                user.getCountry()
+        );
+        List<WordResponse> wordListResponses = wordService.getWordBySetId(setEntity.getId());
+        setResponse.setWordResponses(wordListResponses);
+        setResponse.setNumberOfWords((long) wordListResponses.size());
+        return setResponse;
     }
 
     @Transactional
@@ -216,8 +226,9 @@ public class SetServiceImpl implements SetService {
                 boolean isAdmin = setEntity.getClassEntity().getClassMemberEntityList().stream()
                         .anyMatch(classMemberEntity -> classMemberEntity.getUserEntity().getId().equals(user.getId()) &&
                                 "ADMIN".equals(classMemberEntity.getRoleClassEntity().getName()));
-                if (!isAdmin)
+                if (!isAdmin && !setEntity.getUserEntity().getId().equals(user.getId())) {
                     throw new IllegalArgumentException("Only an admin can delete a set with class privacy.");
+                }
             }
         }
 

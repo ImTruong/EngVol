@@ -15,13 +15,11 @@ public class CreateWordRequest {
     @NotBlank(message = "Word name is required")
     private String word;
 
-    @NotBlank(message = "Ipa is required")
     private String ipa;
 
     @NotBlank(message = "Definition is required")
     private String definition;
 
-    @NotBlank(message = "Example is required")
     private String example;
 
     private MultipartFile image;

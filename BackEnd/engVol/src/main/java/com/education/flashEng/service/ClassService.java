@@ -16,7 +16,7 @@ public interface ClassService {
 
     ClassInformationResponse getClassInformation(Long classId);
 
-    Page<ClassInformationResponse> getAllCurrentUserClasses(Pageable pageable);
+    Page<ClassInformationResponse> getAllCurrentUserClasses(Pageable pageable,String name);
 
     Page<ClassInformationResponse> findClassByName(String name, Pageable pageable);
 

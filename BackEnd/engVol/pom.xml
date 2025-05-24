@@ -9,7 +9,7 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.education</groupId>
-	<artifactId>engVol</artifactId>
+	<artifactId>flashLearn</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>flashEng</name>
 	<description>English learning website</description>

@@ -110,11 +110,16 @@ public class ClassServiceImpl implements ClassService {
     }
 
     @Override
-    public Page<ClassInformationResponse> getAllCurrentUserClasses(Pageable pageable) {
+    public Page<ClassInformationResponse> getAllCurrentUserClasses(Pageable pageable, String name) {
         UserEntity user = userService.getUserFromSecurityContext();
         List<ClassEntity> classEntityList = user.getClassMemberEntityList().stream()
                 .map(ClassMemberEntity::getClassEntity)
                 .toList();
+        if (name != null) {
+            classEntityList = classEntityList.stream()
+                    .filter(classEntity -> classEntity.getName().toLowerCase().contains(name.toLowerCase()))
+                    .toList();
+        }
         List<ClassInformationResponse> responses = classEntityList.stream()
                 .map(classEntity -> ClassInformationResponse.builder()
                         .classId(classEntity.getId())

@@ -14,7 +14,7 @@ public interface SetService {
     Page<SetResponse> getOwnPublicAndPrivateSet(Pageable pageable);
     List<SetResponse> getPrivateSet();
     Page<SetResponse> getSetByClassID(Long classID, Pageable pageable);
-    boolean updateSet(UpdateSetRequest updateSetRequest);
+    SetResponse updateSet(UpdateSetRequest updateSetRequest);
     boolean deleteSetById(Long setID);
     Page<SetResponse> getRecentSet(Pageable pageable);
     Page<SetResponse> findSetByName(Long classId, String name, Pageable pageable);

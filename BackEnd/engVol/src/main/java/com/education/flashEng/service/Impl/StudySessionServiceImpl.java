@@ -126,23 +126,44 @@ public class StudySessionServiceImpl implements StudySessionService {
         }
         switch (studySessionEntity.getDifficulty().toLowerCase()){
             case "very easy":
-                coefficient += 0.1;
+                // Tăng mạnh hệ số - từ dễ nhớ lâu hơn
+                coefficient = coefficient * 1.3;
+                if(coefficient > 4.0) coefficient = 4.0; // Giới hạn tối đa
                 break;
+
             case "easy":
+                // Tăng vừa phải
+                coefficient = coefficient * 1.15;
+                if(coefficient > 3.5) coefficient = 3.5;
                 break;
+
             case "difficult":
-                if(coefficient > 0.3)
-                    coefficient += -0.1;
+                // Giảm nhưng không quá mạnh
+                coefficient = coefficient * 0.75;
+                if(coefficient < 1.2) coefficient = 1.2; // Giới hạn tối thiểu
                 break;
+
             case "very difficult":
-                coefficient = 1.0;
-                reminderTime = 0.3;
+                // Giảm mạnh nhưng không reset hoàn toàn như cũ
+                coefficient = coefficient * 0.6;
+                if(coefficient < 1.0) coefficient = 1.0;
+                reminderTime = reminderTime * 0.7;
+                if(reminderTime < 0.5) reminderTime = 0.5; // Tối thiểu 12 tiếng
                 break;
         }
-        reminderTime *= coefficient;
-        LocalDateTime newRemindTime = timeUtil.addFractionOfDay(startTime, reminderTime);
+        // Tính thời gian ôn lại tiếp theo
+        double nextReminderTime = reminderTime * coefficient;
+
+        // Áp dụng giới hạn an toàn
+        if(nextReminderTime < 0.5) nextReminderTime = 0.5;   // Tối thiểu 12 tiếng
+        if(nextReminderTime > 180.0) nextReminderTime = 180.0; // Tối đa 6 tháng
+
+        LocalDateTime newRemindTime = timeUtil.addFractionOfDay(startTime, nextReminderTime);
+
+        // Cập nhật thông số
         studySessionEntity.setCoefficient(coefficient);
-        studySessionEntity.setReminderTime(reminderTime);
+        studySessionEntity.setReminderTime(nextReminderTime);
+
         return newRemindTime;
     }
 }
