@@ -5,7 +5,7 @@
 
     const joinRequestId = ref("");
     const classId = localStorage.getItem('classId');
-    const joinRovokeMode = ref("Join");
+    const joinRevokeMode = ref("Join");
     const token = localStorage.getItem('token');
 
     const { classItem, Overlay_background } = defineProps(['classItem', 'Overlay_background']);
@@ -16,28 +16,30 @@
     }
 
     const join_button = async () => {
-        if (joinRovokeMode.value === "Join") {
+        if (!token) {
+            window.location.href = '/login';
+            alert('Login for to use this feature');
+            return;
+        }
+        if (joinRevokeMode.value === "Join") {
             try {
                 const user = JSON.parse(localStorage.getItem('user'));
                 const userId = user.id;
                 const response = await joinClass(classId, userId, token);
+                await fetchJoinRequest();
                 alert(response.message);
-                if (response.isSuccess) {
-                    joinRovokeMode.value = "Revoke";
-                }
-                getJoinRequest();
             } catch (error) {
                 console.error('Error while joining the class:', error);
+                alert('Error while joining the class:', error);
             }
         } else {
             try {
                 const response = await revokeJoinRequest(joinRequestId.value, token);
-                if (response.isSuccess) {
-                    joinRovokeMode.value = "Join";
-                }
+                await fetchJoinRequest();
                 alert(response.message);
             } catch (error) {
                 console.error('Error while revoking join request:', error);
+                alert('Error while revoking join request:', error);
             }
         }
     };
@@ -46,10 +48,9 @@
         try {
             const response = await getJoinRequest(classId, token);
             joinRequestId.value = response.classJoinRequestId;
-            if (response.isSuccess) {
-                joinRovokeMode.value = "Revoke";
-            }
+            joinRevokeMode.value = "Revoke";
         } catch (error) {
+            joinRevokeMode.value = "Join";
             console.error('Error while fetching join request:', error);
         }
     };
@@ -72,7 +73,7 @@
             </div>
             <p class="class-details">{{ classItem.numberOfSets }} {{ classItem.numberOfMembers === 1 ? 'set' : 'sets' }} | {{ classItem.numberOfMembers }} {{ classItem.numberOfMembers === 1 ? 'member' : 'members' }}</p>
             <div class="join-button" @click="join_button">
-                <p>{{ joinRovokeMode }}</p>
+                <p>{{ joinRevokeMode }}</p>
             </div>
         </div>
     </div>

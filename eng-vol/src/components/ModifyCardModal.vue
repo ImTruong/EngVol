@@ -9,6 +9,7 @@
   const definitions = ref([]);
   const isDropdownOpen= ref(false);
   const showImg = ref(false);
+  const token = localStorage.getItem('token');
   const props = defineProps({
     setName: {
       type: String,
@@ -68,7 +69,7 @@
         audioElement.style.display = "none";
       }
     }
-    definitions.value = data[0].meanings?.flatMap(meaning =>
+    definitions.value = data[0]?.meanings?.flatMap(meaning =>
       meaning.definitions?.map(def => def.definition) || []
     )
   };
@@ -79,62 +80,72 @@
     }
   });
 
-  // const saveData = async () => {
-  //   const formData = new FormData();
-  //   formData.append('setId', props.setId);
-  //   if (newWord.value.id) formData.append('id', newWord.value.id);
-  //   formData.append('word', newWord.value.word);
-  //   formData.append('ipa', newWord.value.ipa);
-  //   if (newWord.value.audio) formData.append('audio', newWord.value.audio);
-  //   formData.append('definition', newWord.value.definition);
-  //   formData.append('example', newWord.value.example);
-  //   if (newWord.value.image) formData.append('image', newWord.value.image);
-
-  //   try {
-  //     if (props.word) {
-  //       const response = await updateWord(formData);
-  //       emit('update', newWord.value);
-  //       alert(response.message);
-  //     } else {
-  //       const response = await createWord(formData);
-  //       emit('save', response.data);
-  //       alert(response.message);
-  //     }
-  //     closeForm();
-  //   } catch (error) {
-  //     console.log(error)
-  //     alert(error);
-  //   }
-  // };
-
   const saveData = async () => {
-    const wordData = {
-        setId: props.setId,
-        id: newWord.value.id || null,
-        word: newWord.value.word,
-        ipa: newWord.value.ipa,
-        audio: newWord.value.audio || null,
-        definition: newWord.value.definition,
-        example: newWord.value.example,
-        image: newWord.value.image || null
-    };
+    // Validate required fields
+    if (!props.setId) {
+      alert("Set ID is required");
+      return;
+    }
+
+    if (!newWord.value.word || newWord.value.word.trim() === '') {
+      alert("Word is required");
+      return;
+    }
+
+    if (!newWord.value.definition || newWord.value.definition.trim() === '') {
+      alert("Definition is required");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('setId', props.setId);
+    if (newWord.value.id) formData.append('id', newWord.value.id);
+    formData.append('word', newWord.value.word.trim());
+    formData.append('ipa', newWord.value.ipa || '');
+    formData.append('definition', newWord.value.definition.trim());
+    formData.append('example', newWord.value.example || '');
+
+    // Xử lý audio - chỉ gửi string URL, không gửi file
+    if (newWord.value.audio) {
+      if (typeof newWord.value.audio === 'string') {
+        // Gửi trực tiếp string URL
+        formData.append('audio', newWord.value.audio);
+      } else if (newWord.value.audio instanceof File) {
+        // Nếu có file audio, cần upload lên server trước để lấy URL
+        // Hoặc tạm thời skip
+        console.warn('Audio file detected but backend expects string URL');
+      }
+    }
+
+    // Xử lý image - đảm bảo chỉ append File object
+    if (newWord.value.image instanceof File) {
+      formData.append('image', newWord.value.image);
+    }
+
+    // Debug: Log FormData contents
+    console.log('FormData contents:');
+    for (let [key, value] of formData.entries()) {
+      console.log(key, ':', value);
+    }
 
     try {
-        let response;
-        if (props.word) {
-            response = await updateWord(wordData); // Gửi object thay vì FormData
-            emit('update', newWord.value);
-        } else {
-            response = await createWord(wordData);
-            emit('save', response.data);
-        }
-        alert(response.message);
-        closeForm();
+      let response;
+      if (props.word) {
+        response = await updateWord(formData, token);
+        emit('update', newWord.value);
+      } else {
+        response = await createWord(formData, token);
+        emit('save', response.data);
+      }
+      alert(response.message);
+      closeForm();
     } catch (error) {
-        console.error(error);
-        alert(error.message || "An error occurred");
+      console.error('Full error:', error);
+      console.error('Error response:', error.response?.data);
+      alert(error.response?.data?.message || error.message || "An error occurred");
     }
-};
+  };
+
 
   const toggleDropdown = () =>{
       isDropdownOpen.value = !isDropdownOpen.value;

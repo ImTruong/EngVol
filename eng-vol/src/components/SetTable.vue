@@ -1,540 +1,836 @@
 <script setup>
-    import { ref, watch, defineEmits, defineProps, computed, onMounted } from 'vue';
-    import OverlayBackground from '../components/OverlayBackground.vue';
-    import ModifyCardModal from '../components/ModifyCardModal.vue';
-    import ImageCard from './ImageCard.vue';
-    import { saveSetInfo } from '@/apis/setApi';
-    import { deleteWord } from '@/apis/wordApi';
-    import { getCurrentUserClasses } from '@/apis/classApi';
+import { ref, watch, defineEmits, defineProps, computed, onMounted } from 'vue';
+import OverlayBackground from '../components/OverlayBackground.vue';
+import ModifyCardModal from '../components/ModifyCardModal.vue';
+import ImageCard from './ImageCard.vue';
+import { saveSetInfo } from '@/apis/setApi';
+import { deleteWord } from '@/apis/wordApi';
+import { getCurrentUserClasses } from '@/apis/classApi';
 
-    const emit = defineEmits(['close', 'save', 'update']);
-    const props = defineProps(['isEditMode', 'existingSet', 'classId', 'className', 'inClass']);
-    const visible = ref(true);
-    const setName = ref(props.isEditMode ? props.existingSet.name : '');
-    const rows = ref(props.isEditMode ? props.existingSet.wordResponses : [{ id: '', word: '', ipa: '', audio: '', definition: '', example: '', image: '' }]);
-    const selectedWords = ref([]);
-    const showSelectColumn = ref(false);
-    const showOptions = ref(false);
-    const selectedOption = ref(props.isEditMode ? props.existingSet.privacyStatus : (props.inClass ? 'CLASS' : 'PRIVATE'));
-    const dropdownRef = ref(null);
-    const isEditWord = ref(false);
-    const showModifyCardModal = ref(false);
-    const classId = ref((props.isEditMode && props.existingSet.privacyStatus === 'CLASS') || props.inClass ? props.classId : '');
-    const isSearchVisible = ref(false);
-    const searchTerm = ref('');
-    const editWord = ref(null);
-    const classSuggestions = ref([]);
-    const myClasses = ref([]);
-    const searchClass = ref(props.isEditMode && props.existingSet.privacyStatus === 'CLASS' ? localStorage.getItem('className') : (props.inClass ? props.className : ''));
-    const user = JSON.parse(localStorage.getItem('user'));
-    const showImg = ref(false);
-    const image = ref("");
-    const token = localStorage.getItem('token');
+const emit = defineEmits(['close', 'reload']);
+const props = defineProps(['isEditMode', 'existingSet', 'classId', 'className', 'inClass']);
+const visible = ref(true);
+const setName = ref(props.isEditMode ? props.existingSet.name : '');
+const rows = ref(props.isEditMode ? props.existingSet.wordResponses : [{ id: '', word: '', ipa: '', audio: '', definition: '', example: '', image: '' }]);
+const selectedWords = ref([]);
+const showSelectColumn = ref(false);
+const showOptions = ref(false);
+const selectedOption = ref(props.isEditMode ? props.existingSet.privacyStatus : (props.inClass ? 'CLASS' : 'PRIVATE'));
+const dropdownRef = ref(null);
+const isEditWord = ref(false);
+const showModifyCardModal = ref(false);
+const classId = ref((props.isEditMode && props.existingSet.privacyStatus === 'CLASS') || props.inClass ? props.classId : '');
+const isSearchVisible = ref(false);
+const searchTerm = ref('');
+const editWord = ref(null);
+const myClasses = ref([]);
+const selectedClass = ref(props.isEditMode && props.existingSet.privacyStatus === 'CLASS' ?
+    { classId: props.classId, className: props.className } :
+    (props.inClass ? { classId: props.classId, className: props.className } : null)
+);
+const user = JSON.parse(localStorage.getItem('user'));
+const showImg = ref(false);
+const image = ref("");
+const token = localStorage.getItem('token');
+const page = ref(0);
+const size = ref(12);
 
-    onMounted(async() => {
-        myClasses.value = await getCurrentUserClasses(token);
-        
-    });
+// Thêm các state cho class selection modal
+const showClassModal = ref(false);
+const previousSelectedOption = ref(selectedOption.value);
+const previousSelectedClass = ref(selectedClass.value);
 
-    const saveSetInfoInfo = async () => {
-        showOptions.value = false;
-        const payload = {
-            setId: props.isEditMode ? props.existingSet.id : null,
-            name: setName.value,
-            description: "My set",
-            privacyStatus: selectedOption.value,
-            classId: classId.value || null
-        };
-        try {
-            const response = await saveSetInfo(payload, token, props.isEditMode);
-            if (props.isEditMode) {
-                emit('update', response);
-            } else {
-                emit('save', response);
-            }
-        } catch (error) {
-            alert(error);
-            selectedOption.value = props.existingSet.privacyStatus;
-        }
-    };
+// Thêm các state cho tìm kiếm và phân trang class
+const classSearchTerm = ref('');
+const classPage = ref(0);
+const classSize = ref(10);
+const classLoading = ref(false);
+const classHasMore = ref(true);
+const classModalScrollContainer = ref(null);
 
-    const addNewWord = (newWord) => {
-        if (rows.value[0].word === '') {
-            rows.value[0] = newWord;
-        } else {
-            rows.value.push(newWord);
-        }
-    };
+// Thêm biến isSetCreated để theo dõi xem set đã được tạo hay chưa
+const isSetCreated = ref(props.isEditMode);
+// Biến lưu ID của set khi tạo mới
+const currentSetId = ref(props.isEditMode && props.existingSet ? props.existingSet.id : null);
 
-    const removeRow = async () => {
-        if (selectedWords.value.length > 0) {
-            for (const wordId of selectedWords.value) {
-                try {
-                    const token = localStorage.getItem('token');
-                    const response = await deleteWord(wordId, token);
-                    rows.value = rows.value.filter(row => row.id !== wordId);
-                    if (response.message) {
-                        alert(response.message);
-                    }
-                } catch (error) {
-                    throw new Error(error);
-                }
-            }
-            selectedWords.value = [];
-        }
-        emit('update', rows.value);
-    };
+onMounted(async() => {
+  myClasses.value = await getCurrentUserClasses(token, page.value, size.value);
+});
 
-    const closeForm = () => {
-        emit('close');
-        visible.value = false;
-    };
+// Hàm load classes cho modal
+const loadClasses = async (reset = false) => {
+  if (classLoading.value) return;
 
-    const toggleSelectWord = (row) => {
-        const index = selectedWords.value.indexOf(row.id);
-        if (index === -1) {
-            selectedWords.value.push(row.id);
-        } else {
-            selectedWords.value.splice(index, 1);
-        }
-    };
+  classLoading.value = true;
+  try {
+    const currentPage = reset ? 0 : classPage.value;
+    const response = await getCurrentUserClasses(token, currentPage, classSize.value, classSearchTerm.value);
 
-    const toggleSelectColumn = () => {
-        showOptions.value = false;
-        showSelectColumn.value = !showSelectColumn.value;
-    };
+    if (reset) {
+      myClasses.value = response.content || [];
+      classPage.value = 0;
+    } else {
+      myClasses.value = [...myClasses.value, ...(response.content || [])];
+    }
 
-    const toggleOptions = () => {
-        showOptions.value = !showOptions.value;
-    };
+    classHasMore.value = !response.last;
+    if (classHasMore.value) {
+      classPage.value++;
+    }
+  } catch (error) {
+    console.error('Error loading classes:', error);
+  } finally {
+    classLoading.value = false;
+  }
+};
 
-    const selectOption = (option) => {
-        selectedOption.value = option;
-    };
+// Hàm xử lý tìm kiếm class
+const searchClasses = async () => {
+  classPage.value = 0;
+  classHasMore.value = true;
+  await loadClasses(true);
+};
 
-    const openModifyCardModal = () => {
-        showOptions.value = false;
-        // if (props.isEditMode && props.existingSet.userDetailResponse.username !== user.username) {
-        //     alert("You aren't authorized to modify this set!");
-        //     return;
-        // }
-        if (!props.isEditMode && !setName.value) {
-            alert("Save set before add words.");
-            return;
-        }
-        showModifyCardModal.value = true;
-        visible.value = false;
-    };
+// Hàm xử lý infinite scroll
+const handleClassScroll = async () => {
+  if (!classModalScrollContainer.value) return;
 
-    const closeModifyCardModal = () => {
-        isEditWord.value = false;
-        visible.value = true;
-        showModifyCardModal.value = false;
-    };
+  const { scrollTop, scrollHeight, clientHeight } = classModalScrollContainer.value;
+  const threshold = 50; // Load more when 50px from bottom
 
-    const handlesaveSetInfoInfo = () => {
-        if (setName.value.trim()) {
-            if (selectedOption.value === 'CLASS' && !classId) {
-                console.log('Please enter classname');
-                return;
-            }
-            saveSetInfoInfo();
-        } else {
-            alert("Please enter setname");
-        }
-    };
+  if (scrollTop + clientHeight >= scrollHeight - threshold && classHasMore.value && !classLoading.value) {
+    await loadClasses();
+  }
+};
 
-    const toggleSearch = () => {
-        showOptions.value = false;
-        isSearchVisible.value = !isSearchVisible.value;
-    };
+const saveSetInfoInfo = async () => {
+  showOptions.value = false;
+  const payload = {
+    setId: currentSetId.value || (props.isEditMode ? props.existingSet.id : null),
+    name: setName.value,
+    description: "My set",
+    privacyStatus: selectedOption.value,
+    classId: classId.value || null
+  };
+  try {
+    const response = await saveSetInfo(payload, token, isSetCreated.value);
+    console.log(response)
+    emit("reload");
+    alert(response.message);
+    setName.value = response.data.name;
+    currentSetId.value = response.data.id;
+    // Cập nhật trạng thái sau khi lưu thành công
+    isSetCreated.value = true;
+  } catch (error) {
+    alert(error);
+    console.log(error);
+  }
+};
 
-    const EditRow = (row) => {
-        isEditWord.value = true;
-        editWord.value = row;
-        openModifyCardModal();
-    };
+const addNewWord = (newWord) => {
+  rows.value.push(newWord);
+  emit("reload");
+};
 
-    const filteredRows = computed(() => {
-        if (!isSearchVisible.value || !searchTerm.value.trim()) {
-            return rows.value;
-        }
-        return rows.value.filter(row => row.word.toLowerCase().includes(searchTerm.value.toLowerCase().trim()));
-    });
+const removeRow = async () => {
+  if (selectedWords.value.length > 0) {
+    for (const wordId of selectedWords.value) {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await deleteWord(wordId, token);
+        rows.value = rows.value.filter(row => row.id !== wordId);
+        alert(response.message);
+      } catch (error) {
+        alert(error);
+        console.log(error);
+      }
+    }
+    selectedWords.value = [];
+  }
+  emit('update', rows.value);
+  emit("reload");
+};
 
-    const updateWord = (updatedWord) => {
-        const index = rows.value.findIndex(row => row.id === updatedWord.id);
-        if (index !== -1) {
-            rows.value[index] = updatedWord;
-        } else {
-            console.error('Word not found in rows');
-        }
-        emit('update', rows.value);
-    };
+const closeForm = () => {
+  emit('close');
+  visible.value = false;
+};
 
-    watch(() => props.existingSet, (newExistingSet) => {
-        if (newExistingSet && newExistingSet.words) {
-            setName.value = newExistingSet.name;
-            rows.value = newExistingSet.words;
-            selectedOption.value = newExistingSet.privacyStatus || '';
-            classId.value = newExistingSet.privacyStatus === 'CLASS' ? props.classId : '';
-        }
-    }, { deep: true });
+const toggleSelectWord = (row) => {
+  const index = selectedWords.value.indexOf(row.id);
+  if (index === -1) {
+    selectedWords.value.push(row.id);
+  } else {
+    selectedWords.value.splice(index, 1);
+  }
+};
 
-    watch(searchClass, () => {
-        classSuggestions.value = [];
-        for (let i = 0; i < myClasses.value.length; i++) {
-            if (myClasses.value[i].className.toLowerCase === searchClass.value.toLowerCase) {
-                classSuggestions.value.push(myClasses.value[i]);
-            }
-        }
-    });
+const toggleSelectColumn = () => {
+  showOptions.value = false;
+  showSelectColumn.value = !showSelectColumn.value;
+};
 
-    const selectClass = (classItem) => {
-        searchClass.value = classItem.className;
-        classId.value = classItem.classId;
-        classSuggestions.value = [];
-    };
+const toggleOptions = () => {
+  showOptions.value = !showOptions.value;
+};
 
-    const openImage = (img) => {
-        showImg.value = true;
-        image.value = img;
-        visible.value = false;
-    };
+const selectOption = (option) => {
+  if (option === 'CLASS') {
+    // Lưu trạng thái hiện tại trước khi mở modal
+    previousSelectedOption.value = selectedOption.value;
+    previousSelectedClass.value = selectedClass.value;
+    showClassModal.value = true;
+    showOptions.value = false;
+    // Load classes khi mở modal
+    loadClasses(true);
+  } else {
+    selectedOption.value = option;
+    selectedClass.value = null;
+    classId.value = '';
+    showOptions.value = false;
+  }
+};
 
-    const closeImage = () => {
-        showImg.value = false;
-        visible.value = true;
-    };
+// Xử lý khi chọn class từ modal
+const selectClassFromModal = (classItem) => {
+  selectedOption.value = 'CLASS';
+  selectedClass.value = classItem;
+  classId.value = classItem.classId;
+  showClassModal.value = false;
+};
+
+// Xử lý khi đóng modal mà không chọn class
+const closeClassModal = () => {
+  // Khôi phục trạng thái trước đó
+  selectedOption.value = previousSelectedOption.value;
+  selectedClass.value = previousSelectedClass.value;
+  if (previousSelectedClass.value) {
+    classId.value = previousSelectedClass.value.classId;
+  } else {
+    classId.value = '';
+  }
+  showClassModal.value = false;
+  // Reset search và pagination
+  classSearchTerm.value = '';
+  classPage.value = 0;
+  classHasMore.value = true;
+};
+
+const openModifyCardModal = () => {
+  showOptions.value = false;
+  if (!isSetCreated.value && !setName.value) {
+    alert("Save set before add words.");
+    return;
+  }
+  showModifyCardModal.value = true;
+  visible.value = false;
+};
+
+const closeModifyCardModal = () => {
+  isEditWord.value = false;
+  visible.value = true;
+  showModifyCardModal.value = false;
+};
+
+const handleSaveSetInfoInfo = () => {
+  if (setName.value.trim()) {
+    if (selectedOption.value === 'CLASS' && !classId.value) {
+      alert('Please select a class');
+      return;
+    }
+    saveSetInfoInfo();
+  } else {
+    alert("Please enter setname");
+  }
+};
+
+const toggleSearch = () => {
+  showOptions.value = false;
+  isSearchVisible.value = !isSearchVisible.value;
+};
+
+const EditRow = (row) => {
+  isEditWord.value = true;
+  editWord.value = row;
+  openModifyCardModal();
+};
+
+const filteredRows = computed(() => {
+  if (!isSearchVisible.value || !searchTerm.value.trim()) {
+    return rows.value;
+  }
+  return rows.value.filter(row => row.word.toLowerCase().includes(searchTerm.value.toLowerCase().trim()));
+});
+
+const updateWord = (updatedWord) => {
+  const index = rows.value.findIndex(row => row.id === updatedWord.id);
+  if (index !== -1) {
+    rows.value[index] = updatedWord;
+  } else {
+    console.error('Word not found in rows');
+  }
+  emit('update', rows.value);
+  emit("reload");
+};
+
+watch(() => props.existingSet, (newExistingSet) => {
+  if (newExistingSet && newExistingSet.words) {
+    setName.value = newExistingSet.name;
+    rows.value = newExistingSet.words;
+    selectedOption.value = newExistingSet.privacyStatus || '';
+    classId.value = newExistingSet.privacyStatus === 'CLASS' ? props.classId : '';
+
+    // Cập nhật biến kiểm tra set đã được tạo
+    if (newExistingSet.id) {
+      isSetCreated.value = true;
+      currentSetId.value = newExistingSet.id;
+    }
+  }
+}, { deep: true });
+
+const openImage = (img) => {
+  showImg.value = true;
+  image.value = img;
+  visible.value = false;
+};
+
+const closeImage = () => {
+  showImg.value = false;
+  visible.value = true;
+};
 </script>
 
 <template>
-    <OverlayBackground :isVisible="visible" @clickOverlay="closeForm" />
-    <div v-if="visible" class="set-window">
-        <div class="set-header">
-            <img src="../assets/lock.svg" alt="Status" @click.stop="toggleOptions" class="option-icon">
-            <img src="../assets/search_icon.svg" alt="Search" @click.stop="toggleSearch" class="option-icon">
-            <div v-show="isSearchVisible">
-                <input v-model="searchTerm" placeholder="Search for a word" class="common-input" />
-            </div>
-            <div class="set-name">
-                <label for="set-name">Set:</label>
-                <input id="set-name" v-model="setName" placeholder="Enter set name" class="common-input"/>
-            </div>
-            <button @click="closeForm" class="close-btn">✖</button>
-        </div>
-        <div v-show="showOptions" class="options-dropdown" ref="dropdownRef">
-            <button @click.stop="selectOption('PUBLIC')" class="option-button">
-                <img src="../assets/globe.svg" alt="Public" class="option-icon" />
-                <span class="option-text">Public</span>
-                <span v-if="selectedOption === 'PUBLIC'" class="checkmark">✔</span>
-            </button>
-            <button @click.stop="selectOption('PRIVATE')" class="option-button">
-                <img src="../assets/lock.svg" alt="Private" class="option-icon" />
-                <span class="option-text">Private</span>
-                <span v-if="selectedOption === 'PRIVATE'" class="checkmark">✔</span>
-            </button>
-            <div class="option-container">
-                <button @click.stop="selectOption('CLASS')" class="option-button">
-                    <img src="../assets/lock.svg" alt="class" class="option-icon" />
-                    <span class="option-text">Class</span>
-                    <span v-if="selectedOption === 'CLASS'" class="checkmark">✔</span>
-                </button>
-                <input
-                    v-if="selectedOption === 'CLASS'"
-                    v-model="searchClass"
-                    @input="fetchClassList"
-                    type="text"
-                    placeholder="Enter class name"
-                    class="class-input"
-                />
-                <ul v-if="classSuggestions.length > 0 && selectedOption === 'CLASS'" class="dropdown-list">
-                    <li
-                        v-for="(classItem, index) in classSuggestions"
-                        :key="index"
-                        @click="selectClass(classItem)"
-                        class="dropdown-item"
-                    >
-                        {{ classItem.className }}
-                    </li>
-                </ul>
-            </div>
-        </div>
-        <div class="table-container">
-            <table class="set-table">
-                <thead>
-                    <tr>
-                        <th v-if="showSelectColumn" class="select-column">Select</th>
-                        <th>Word</th>
-                        <th>IPA</th>
-                        <th>Definition</th>
-                        <th>Example</th>
-                        <th class="image">Image</th>
-                        <th class="edit" >Edit</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="(row, index) in filteredRows" :key="index">
-                        <td v-if="showSelectColumn">
-                            <input type="checkbox" @change="toggleSelectWord(row)" :checked="selectedWords.includes(row.id)" />
-                        </td>
-                        <td><p>{{ row.word }}</p></td>
-                        <td><p>{{ row.ipa }}</p></td>
-                        <td><p>{{ row.definition }}</p></td>
-                        <td><p>{{ row.example }}</p></td>
-                        <td class="image" >
-                            <img v-if="row.image" src="../assets/image.svg" alt="class" class="image-icon" @click="openImage(row.image)" />
-                        </td>
-                        <td v-if="row.word">
-                            <img  src="../assets/edit-02.svg" alt="" @click="EditRow(row)" class="edit-icon">
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        <div class="actions">
-            <button @click="toggleSelectColumn" class="icon-button">
-                <img src="../assets/select.svg" alt="" class="icon">
-            </button>
-            <button @click="removeRow" class="icon-button">
-                <img src="../assets/delete-word.svg" alt="" class="icon">
-            </button>
-            <button @click="openModifyCardModal" class="icon-button">
-                <img src="../assets/add-word.svg" alt="" class="icon">
-            </button>
-            <button @click="handlesaveSetInfoInfo" class="icon-button">
-                <img src="../assets/save.svg" alt="" class="icon">
-            </button>
-        </div>
+  <OverlayBackground :isVisible="visible" @clickOverlay="closeForm" />
+  <div v-if="visible" class="set-window">
+    <div class="set-header">
+      <img src="../assets/lock.svg" alt="Status" @click.stop="toggleOptions" class="option-icon">
+      <img src="../assets/search_icon.svg" alt="Search" @click.stop="toggleSearch" class="option-icon">
+      <div v-show="isSearchVisible">
+        <input v-model="searchTerm" placeholder="Search for a word" class="common-input" />
+      </div>
+      <div class="set-name">
+        <label for="set-name">Set:</label>
+        <input id="set-name" v-model="setName" placeholder="Enter set name" class="common-input"/>
+      </div>
+      <button @click="closeForm" class="close-btn">✖</button>
     </div>
-    <ModifyCardModal 
-        :setName="setName"         
-        :setId="props.existingSet.id" 
-        :word="isEditWord ? editWord : null"
-        v-if="showModifyCardModal" 
-        @update="updateWord"
-        @close="closeModifyCardModal" 
-        @save="addNewWord">
-    </ModifyCardModal>
-    <ImageCard :Overlay_background ="showImg" :image="image" v-if="showImg" @close="closeImage"></ImageCard>
-</template>  
+    <div v-show="showOptions" class="options-dropdown" ref="dropdownRef">
+      <button @click.stop="selectOption('PUBLIC')" class="option-button">
+        <img src="../assets/globe.svg" alt="Public" class="option-icon" />
+        <span class="option-text">Public</span>
+        <span v-if="selectedOption === 'PUBLIC'" class="checkmark">✔</span>
+      </button>
+      <button @click.stop="selectOption('PRIVATE')" class="option-button">
+        <img src="../assets/lock.svg" alt="Private" class="option-icon" />
+        <span class="option-text">Private</span>
+        <span v-if="selectedOption === 'PRIVATE'" class="checkmark">✔</span>
+      </button>
+      <button @click.stop="selectOption('CLASS')" class="option-button">
+        <img src="../assets/lock.svg" alt="class" class="option-icon" />
+        <span class="option-text">Class</span>
+        <span v-if="selectedOption === 'CLASS'" class="checkmark">✔</span>
+        <span v-if="selectedOption === 'CLASS' && selectedClass" class="selected-class">
+                    ({{ selectedClass.className }})
+                </span>
+      </button>
+    </div>
+    <div class="table-container">
+      <table class="set-table">
+        <thead>
+        <tr>
+          <th v-if="showSelectColumn" class="select-column">Select</th>
+          <th>Word</th>
+          <th>IPA</th>
+          <th>Definition</th>
+          <th>Example</th>
+          <th class="image">Image</th>
+          <th class="edit" >Edit</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr v-for="(row, index) in filteredRows" :key="index">
+          <td v-if="showSelectColumn">
+            <input type="checkbox" @change="toggleSelectWord(row)" :checked="selectedWords.includes(row.id)" />
+          </td>
+          <td><p>{{ row.word }}</p></td>
+          <td><p>{{ row.ipa }}</p></td>
+          <td><p>{{ row.definition }}</p></td>
+          <td><p>{{ row.example }}</p></td>
+          <td class="image" >
+            <img v-if="row.image" src="../assets/image.svg" alt="class" class="image-icon" @click="openImage(row.image)" />
+          </td>
+          <td v-if="row.word">
+            <img  src="../assets/edit-02.svg" alt="" @click="EditRow(row)" class="edit-icon">
+          </td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="actions">
+      <button @click="toggleSelectColumn" class="icon-button">
+        <img src="../assets/select.svg" alt="" class="icon">
+      </button>
+      <button @click="removeRow" class="icon-button">
+        <img src="../assets/delete-word.svg" alt="" class="icon">
+      </button>
+      <button @click="openModifyCardModal" class="icon-button">
+        <img src="../assets/add-word.svg" alt="" class="icon">
+      </button>
+      <button @click="handleSaveSetInfoInfo" class="icon-button">
+        <img src="../assets/save.svg" alt="" class="icon">
+      </button>
+    </div>
+  </div>
+
+  <!-- Class Selection Modal -->
+  <OverlayBackground :isVisible="showClassModal" @clickOverlay="closeClassModal" />
+  <div v-if="showClassModal" class="class-modal">
+    <div class="class-modal-header">
+      <h3>Select a Class</h3>
+      <button @click="closeClassModal" class="close-btn">✖</button>
+    </div>
+
+    <!-- Search Section -->
+    <div class="class-search-section">
+      <div class="search-input-container">
+        <input
+            v-model="classSearchTerm"
+            @input="searchClasses"
+            @keyup.enter="searchClasses"
+            type="text"
+            placeholder="Search classes..."
+            class="class-search-input"
+        />
+        <button @click="searchClasses" class="search-btn" :disabled="classLoading">
+          <img src="../assets/search_icon.svg" alt="Search" class="search-icon" />
+        </button>
+      </div>
+    </div>
+
+    <div class="class-modal-content" ref="classModalScrollContainer" @scroll="handleClassScroll">
+      <div v-if="classLoading && myClasses.length === 0" class="loading-state">
+        <p>Loading classes...</p>
+      </div>
+      <div v-else-if="myClasses.length === 0" class="no-classes">
+        <p>{{ classSearchTerm ? 'No classes found matching your search' : 'No classes available' }}</p>
+      </div>
+      <div v-else class="class-list">
+        <div
+            v-for="classItem in myClasses"
+            :key="classItem.classId"
+            @click="selectClassFromModal(classItem)"
+            class="class-item"
+            :class="{ 'selected': selectedClass && selectedClass.classId === classItem.classId }"
+        >
+          <div class="class-info">
+            <h4>{{ classItem.className }}</h4>
+            <div class="class-stats">
+                            <span class="stat-item">
+                                <img src="../assets/user.svg" alt="Members" class="stat-icon" />
+                                {{ classItem.numberOfMembers || 0 }} members
+                            </span>
+              <span class="stat-item">
+                                <img src="../assets/new-set.svg" alt="Sets" class="stat-icon" />
+                                {{ classItem.numberOfSets || 0 }} sets
+                            </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Loading more indicator -->
+        <div v-if="classLoading && myClasses.length > 0" class="loading-more">
+          <p>Loading more classes...</p>
+        </div>
+
+        <!-- End of results indicator -->
+        <div v-if="!classHasMore && myClasses.length > 0" class="end-of-results">
+          <p>No more classes to load</p>
+        </div>
+      </div>
+    </div>
+    <div class="class-modal-footer">
+      <button @click="closeClassModal" class="cancel-btn">Cancel</button>
+    </div>
+  </div>
+
+  <ModifyCardModal
+      :setName="setName"
+      :setId="currentSetId"
+      :word="isEditWord ? editWord : null"
+      v-if="showModifyCardModal"
+      @update="updateWord"
+      @close="closeModifyCardModal"
+      @save="addNewWord">
+  </ModifyCardModal>
+  <ImageCard :Overlay_background ="showImg" :image="image" v-if="showImg" @close="closeImage"></ImageCard>
+</template>
 
 <style scoped>
-    .set-window {
-        position: fixed;
-        top: 100px;
-        left: 50%;
-        transform: translateX(-50%);
-        background-color: white;
-        border-radius: 8px;
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-        padding: 20px;
-        width: 60%;
-        z-index: 11;
-    }
-  
-    .set-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-  
-    .set-header img {
-        margin-left: 10px;
-    }
+.set-window {
+  position: fixed;
+  top: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  padding: 20px;
+  width: 60%;
+  z-index: 11;
+}
 
-    .set-name {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-grow: 1;
-        width: 100%;
-    }
+.set-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
 
-    .option-container {
-        display: flex;
-        align-items: center;
-    }
-    
-    .option-button {
-        display: flex;
-        align-items: center;
-        margin-right: 8px;
-    }
+.set-header img {
+  margin-left: 10px;
+}
 
-    .class-input {
-        margin: 4px;
-        width: 100%;
-        padding: 10px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-    }
+.set-name {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-grow: 1;
+  width: 100%;
+}
 
-    .dropdown-list {
-        position: absolute;
-        top: 100%;
-        left: 50%;
-        width: 50%;
-        max-height: 200px;
-        overflow-y: auto;
-        margin: 0;
-        padding: 0;
-        list-style-type: none;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        background-color: #fff;
-        z-index: 10;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
+.common-input {
+  margin-left: 10px;
+  padding: 5px;
+  border: 1px solid black;
+  border-radius: 4px;
+  text-align: center;
+  width: 50%;
+  min-width: 150px;
+  max-width: 300px;
+}
 
-    .dropdown-item {
-        padding: 10px;
-        cursor: pointer;
-        transition: background-color 0.2s;
-    }
+.table-container {
+  max-height: 300px;
+  overflow-y: auto;
+  margin-top: 20px;
+  flex-grow: 1;
+  position: relative;
+}
 
-    .dropdown-item:hover {
-        background-color: #f0f0f0;
-    }
+.set-table {
+  width: 100%;
+  min-height: 60px;
+  margin-top: 20px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
 
-    .common-input {
-        margin-left: 10px;
-        padding: 5px;
-        border: 1px solid black;
-        border-radius: 4px;
-        text-align: center;
-        width: 50%;
-        min-width: 150px;
-        max-width: 300px;
-    }
-  
-    .table-container {
-        max-height: 300px;
-        overflow-y: auto;
-        margin-top: 20px;
-        flex-grow: 1;
-        position: relative;
-    }
+.set-table th {
+  background-color: #A8D5E5;
+  border: 1px solid black;
+}
 
-    .set-table {
-        width: 100%;
-        min-height: 60px;
-        margin-top: 20px;
-        border-collapse: collapse;
-        table-layout: fixed;
-    }
+.set-table td {
+  padding: 5px;
+  border: 1px solid #ccc;
+  text-align: center;
+}
 
-    .set-table th {
-        background-color: #A8D5E5;
-        border: 1px solid black;
-    }
+.select-column {
+  width: 50px;
+}
 
-    .set-table td {
-        padding: 5px;
-        border: 1px solid #ccc;
-        text-align: center;
-    }
+.image {
+  width: 50px !important;
+}
 
-    .select-column {
-        width: 50px;
-    }
+.image-icon:hover {
+  transform: scale(1.05);
+}
 
-    .image {
-        width: 50px !important;
-    }
+.edit {
+  width: 50px;
+}
 
-    .image-icon:hover {
-        transform: scale(1.05);
-    }
+.edit-icon:hover {
+  transform: scale(1.05);
+}
 
-    .edit {
-        width: 50px;
-    }
+.set-table td img {
+  width: 20px;
+  height: auto;
+  cursor: pointer;
+}
 
-    .edit-icon:hover {
-        transform: scale(1.05);
-    }
+.set-table th:not(.select-column, .edit) {
+  width: calc((100% - 20px) / 5);
+}
 
-    .set-table td img {
-        width: 20px;
-        height: auto;
-        cursor: pointer;
-    }
+.actions {
+  display: flex;
+  justify-content: space-around;
+  margin: 5px;
+  margin-bottom: 0px;
+}
 
-    .set-table th:not(.select-column, .edit) {
-        width: calc((100% - 20px) / 5);
-    }
-  
-    .actions {
-        display: flex;
-        justify-content: space-around;
-        margin: 5px;
-        margin-bottom: 0px;
-    }
+.icon-button {
+  cursor: pointer;
+  width: 80px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  transition: background-color 0.3s;
+}
 
-    .icon-button {
-        cursor: pointer;
-        width: 80px;
-        height: 40px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border: none;
-        background: none;
-        transition: background-color 0.3s;
-    }
+.icon {
+  width: 100%;
+  height: auto;
+  cursor: pointer;
+}
 
-    .icon {
-        width: 100%;
-        height: auto;
-        cursor: pointer;
-    }
+.icon:hover {
+  transform: scale(1.05);
+}
 
-    .icon:hover {
-        transform: scale(1.05);
-    }
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+}
 
-    .close-btn {
-        background: none;
-        border: none;
-        font-size: 20px;
-        cursor: pointer;
-    }
+.options-dropdown {
+  position: absolute;
+  background-color: white;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  margin-top: 5px;
+  z-index: 1001;
+}
 
-    .options-dropdown {
-        position: absolute; 
-        background-color: white;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        margin-top: 5px; 
-        z-index: 1001; 
-    }
-    
-    .option-button {
-        display: flex; 
-        align-items: center; 
-        padding: 10px;
-        border: none;
-        background: none;
-        width: 100%; 
-        text-align: left; 
-        cursor: pointer;
-    }
-    
-    .option-button:hover {
-        background-color: #f0f0f0;
-    }
-    
-    .option-icon {
-        width: 20px; 
-        height: 20px; 
-        margin-right: 15px; 
-        cursor: pointer;
-    }
-    
-    .checkmark {
-        color:rgb(218, 87, 87); 
-        margin-left: 15px; 
-    }
+.option-button {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+.option-button:hover {
+  background-color: #f0f0f0;
+}
+
+.option-icon {
+  width: 20px;
+  height: 20px;
+  margin-right: 15px;
+  cursor: pointer;
+}
+
+.checkmark {
+  color:rgb(218, 87, 87);
+  margin-left: 15px;
+}
+
+.selected-class {
+  color: #666;
+  font-size: 12px;
+  margin-left: 5px;
+}
+
+/* Class Modal Styles */
+.class-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  width: 600px;
+  max-height: 700px;
+  z-index: 1002;
+  display: flex;
+  flex-direction: column;
+}
+
+.class-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.class-modal-header h3 {
+  margin: 0;
+  color: #333;
+}
+
+.class-search-section {
+  padding: 15px 20px;
+  border-bottom: 1px solid #eee;
+  background-color: #f8f9fa;
+}
+
+.search-input-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.class-search-input {
+  flex: 1;
+  padding: 10px 15px;
+  border: 2px solid #e0e0e0;
+  border-radius: 25px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.class-search-input:focus {
+  border-color: #A8D5E5;
+}
+
+.search-btn {
+  padding: 10px;
+  background-color: #A8D5E5;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+  width: 40px;
+  height: 40px;
+}
+
+.search-btn:hover:not(:disabled) {
+  background-color: #91c7d9;
+}
+
+.search-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.search-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.class-modal-content {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  max-height: 450px;
+}
+
+.loading-state, .no-classes {
+  text-align: center;
+  color: #666;
+  padding: 40px 20px;
+}
+
+.loading-more {
+  text-align: center;
+  color: #666;
+  padding: 20px;
+  font-style: italic;
+}
+
+.end-of-results {
+  text-align: center;
+  color: #999;
+  padding: 20px;
+  font-size: 12px;
+  border-top: 1px solid #f0f0f0;
+  margin-top: 10px;
+}
+
+.class-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.class-item {
+  padding: 18px;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background-color: #fff;
+}
+
+.class-item:hover {
+  border-color: #A8D5E5;
+  background-color: #f8f9fa;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.class-item.selected {
+  border-color: #A8D5E5;
+  background-color: #e7f3ff;
+  box-shadow: 0 2px 8px rgba(168, 213, 229, 0.3);
+}
+
+.class-info h4 {
+  margin: 0 0 10px 0;
+  color: #333;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.class-stats {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #666;
+  font-size: 14px;
+}
+
+.stat-icon {
+  width: 16px;
+  height: 16px;
+  opacity: 0.7;
+}
+
+.class-modal-footer {
+  padding: 20px;
+  border-top: 1px solid #eee;
+  display: flex;
+  justify-content: flex-end;
+  background-color: #f8f9fa;
+}
+
+.cancel-btn {
+  padding: 10px 20px;
+  background-color: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-size: 14px;
+}
+
+.cancel-btn:hover {
+  background-color: #e0e0e0;
+}
 </style>

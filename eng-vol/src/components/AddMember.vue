@@ -19,10 +19,9 @@ const token = localStorage.getItem('token');
 
 const fetchInvite = async () => {
     try {
-        const classInvitationId = await checkInviteExistance(invitee.value, classId, token);
-        console.log(classInvitationId);
-        invitationId.value = classInvitationId;
-        if (classInvitationId) {
+        const response = await checkInviteExistance(invitee.value, classId, token);
+        invitationId.value = response.classInvitationId;
+        if (response.classInvitationId) {
             inviteRovokeMode.value = "Revoke";
         }
     } catch (error) {
@@ -33,7 +32,6 @@ const fetchInvite = async () => {
 const handleInviteUser = async () => {
     try {
         const message = await inviteUser(classId, invitee.value, token);
-        console.log("test")
         alert(message);
         inviteRovokeMode.value = "Revoke";
         fetchInvite();
@@ -50,8 +48,8 @@ const handleRevokeUser = async () => {
             console.error('Invitation ID is missing');
             return;
         }
-        const data = await revokeUser(invitationId.value, token);
-        alert(data.message);
+        const message = await revokeUser(invitationId.value, token);
+        alert(message);
         inviteRovokeMode.value = "Invite";
     } catch (error) {
         alert(error);

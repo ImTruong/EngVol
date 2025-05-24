@@ -242,11 +242,11 @@ const actions = {
     context.commit("revokeJoinRequest", requestId);
   },
   //real
-  async fetchClassData(context) { 
-    const classes =  await getCurrentUserClasses("fake token");
-    context.commit("setClasses", classes);
-    return classes;
-  }
+  // async fetchClassData(context) {
+  //   const classes =  await getCurrentUserClasses("fake token");
+  //   context.commit("setClasses", classes);
+  //   return classes;
+  // }
 };
 
 const getters = {

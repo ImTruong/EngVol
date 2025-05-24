@@ -162,9 +162,14 @@ const actions = {
     deleteSet({commit}, setId){
         commit('delete', setId);
     },
-    fetchLibrarySets(context, token){
-        context.state.sets = context.state.fakeDataListSet.filter(set => set.userDetailResponse.username == "admin");
-    },
+    // async fetchLibrarySets(context, token){
+    //     const response = await fetch("/set", {
+    //         method: "GET",
+    //         headers: {
+    //             Authorization: `Bearer ${token}`
+    //         }
+    //     }
+    // },
     //real
     setCurrentSet({ commit }, set) {
       commit('setCurrentSet', set);

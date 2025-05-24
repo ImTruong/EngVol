@@ -1,258 +1,627 @@
 <script setup>
-    import { ref, computed, onMounted, watch } from 'vue';
-    import { useRouter } from 'vue-router';
-    import { useStore } from 'vuex';
-    import axios from 'axios';
-    import Header from "../components/Header.vue";
+import { ref, computed, onMounted, watch } from 'vue';
+import { useRouter } from 'vue-router';
+import { useStore } from 'vuex';
+import Header from "../components/Header.vue";
+import {createStudySession} from "@/apis/studyApi.js";
 
-    //
-    const currentSet = ref({
-          "id": 1,
-          "name": "Basic Vocabulary",
-          "description": "A set of common English words for beginners.",
-          "privacyStatus": "class",
-          "classId": 1,
-          "numberOfWords": 2,
-          "wordResponses": [
-            {
-              "id": 101,
-              "word": "test",
-              "ipa": "/test/",
-              "definition": "To be shown to be by test.",
-              "example": "This is a test sentence.",
-              "image": "http://res.cloudinary.com/dyzfar3j8/image/upload/v1740882608/kqdlyar52xncvpvix4sl.jpg",
-              "audio": "https://api.dictionaryapi.dev/media/pronunciations/en/test-uk.mp3"
-            },
-            {
-              "id": 102,
-              "word": "web",
-              "ipa": "/wɛb/",
-              "definition": "The World Wide Web.",
-              "example": "im coding a web",
-              "image": "https://carly.com.vn/media/1209/website-la-gi.jpg?anchor=center&mode=crop&rnd=132730833370930000",
-              "audio": "https://api.dictionaryapi.dev/media/pronunciations/en/web-us.mp3"
-            },
-          ],
-          userDetailResponse:{
-            "username": "admin",
-            "fullName": "John Doe",
-          }
-        });
-        //
+const store = useStore();
+const router = useRouter();
+const currentCard = ref(0);
+const isFlipped = ref(false);
+const currentSet = computed(() => store.state.setModule.currentSet);
+const totalCards = computed(() => currentSet.value ? currentSet.value.wordResponses.length : 0);
+const cardStatus = computed(() => `${currentCard.value + 1}/${totalCards.value}`);
+const progress = computed(() => ((currentCard.value + 1) / totalCards.value) * 100);
 
-    const store = useStore();
-    const router = useRouter();
-    const currentCard = ref(0);
-    const isFlipped = ref(false);
-    // const currentSet = computed(() => store.state.currentSet); 
-    const totalCards = computed(() => currentSet.value ? currentSet.value.wordResponses.length : 0);    
-    const cardStatus = computed(() => `${currentCard.value + 1}/${totalCards.value}`);
-    
-    const playAudio = () => {
-        const audio = new Audio(currentSet.value.wordResponses[currentCard.value].audio);
-        audio.play();
-    }
-    const nextCard = () => {
-        if (currentCard.value < totalCards.value - 1) {
-            isFlipped.value = false;
-            currentCard.value += 1;
-        } else {
-            alert("Completed!");
-            setTimeout(() => {
-                router.push('/');
-            }, 0);
-        
-        }
+const playAudio = () => {
+  const audio = new Audio(currentSet.value.wordResponses[currentCard.value].audio);
+  audio.play();
+}
+
+const nextCard = () => {
+  if (currentCard.value < totalCards.value - 1) {
+    isFlipped.value = false;
+    currentCard.value += 1;
+  } else {
+    alert("Completed!");
+    setTimeout(() => {
+      router.push('/');
+    }, 0);
+  }
+};
+
+const toggleFlip = () => {
+  isFlipped.value = !isFlipped.value;
+}
+
+const submitRating = async (rating) => {
+  try{
+    const currentWord = currentSet.value.wordResponses[currentCard.value];
+    const studySessionData = {
+      wordId: currentWord.id,
+      difficulty: rating
     };
+    const token = localStorage.getItem('token');
+    await createStudySession(token, studySessionData);
+  }catch (error) {
+    console.error("Error creating study session:", error);
+  }
+  nextCard();
+};
 
-    const toggleFlip = () => {
-        isFlipped.value = !isFlipped.value;
-    }
+const previousCard = () => {
+  if (currentCard.value > 0) {
+    isFlipped.value = false;
+    currentCard.value -= 1;
+  }
+};
 
-    const submitRating = async (rating) => {
-        try {
-            // const currentWord = currentSet.value.wordResponses[currentCard.value];
-            // const studySessionData = {
-            //     wordId: currentWord.id,
-            //     difficulty: rating
-            // };
-            // console.log(studySessionData);
-            // const token = localStorage.getItem('token'); 
-            // const config = {
-            // headers: {
-            //     Authorization: `Bearer ${token}` // Thêm token vào header
-            // }
-            // }
-            // // Make API request to log study session
-            // const response = await axios.post('/study', studySessionData, config); // Replace with your actual API endpoint
-            // console.log('Study session created:', studySessionData);
-            // if (response.data.message) {
-            //     console.log(response.data.message);
-            // }
-            nextCard();
-        } catch (error) {
-            if (error.response) {
-                alert(`${error.response.data.message || 'An error occurred'}`);
-            } else {
-                alert(`Network or Axios error: ${error.message}`);
-            }
-        }
-    };
-    
+const nextCardNav = () => {
+  if (currentCard.value < totalCards.value - 1) {
+    isFlipped.value = false;
+    currentCard.value += 1;
+  }
+};
 </script>
 
 <template>
-    <Header></Header>
-    <div class="flashcard-container" v-if="currentSet"> 
-        <div class="flashcard-header">
-            <h2>{{ currentSet.name }}</h2>
-            <span>{{ cardStatus }}</span>
+  <Header></Header>
+  <div class="flashcard-container" v-if="currentSet">
+    <div class="flashcard-header">
+      <div class="header-top">
+        <button @click="previousCard" class="nav-btn" :disabled="currentCard === 0" :class="{ 'disabled': currentCard === 0 }">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 12H5"/>
+            <path d="M12 19l-7-7 7-7"/>
+          </svg>
+          Previous
+        </button>
+        <h1 class="set-title">{{ currentSet.name }}</h1>
+        <button @click="nextCardNav" class="nav-btn" :disabled="currentCard === totalCards - 1" :class="{ 'disabled': currentCard === totalCards - 1 }">
+          Next
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M5 12h14"/>
+            <path d="M12 5l7 7-7 7"/>
+          </svg>
+        </button>
+      </div>
+      <div class="progress-section">
+        <div class="progress-bar">
+          <div class="progress-fill" :style="{ width: progress + '%' }"></div>
         </div>
-
-        <div class="flashcard-content" @click="toggleFlip">
-            <div class="flashcard">
-                <div v-if="!isFlipped" class="flashcard-front">
-                    <img v-if="!(currentSet.wordResponses[currentCard]?.image === null)" :src="currentSet.wordResponses[currentCard].image" alt="Flashcard Image" />
-                    <p v-if="!(currentSet.wordResponses[currentCard]?.image === null)" >{{ currentSet.wordResponses[currentCard].word }}</p>
-                    <h1 v-else>{{ currentSet.wordResponses[currentCard].word }}</h1>
-                  </div>
-                  <div v-else class="flashcard-back">
-                    <p class="ipa">{{ currentSet.wordResponses[currentCard].ipa }}</p>
-                    <p class="definition">{{ currentSet.wordResponses[currentCard].definition }}</p>
-                    <div v-if="currentSet.wordResponses[currentCard].audio" class="audio-icon" @click.stop="playAudio">
-                        <img v-if="!(currentSet.wordResponses[currentCard]?.audio === null)" src="../assets/speaker-icon.svg" alt="Speaker Icon" class="icon-play" />
-                    </div>
-                    <p class="example">{{ currentSet.wordResponses[currentCard].example }}</p>
-                  </div>
-            </div>    
-        </div>
-        <div class="flashcard-rating">
-            <button @click="submitRating('Very Difficult')" class="rating-btn">Very Difficult</button>
-            <button @click="submitRating('Difficult')" class="rating-btn">Difficult</button>
-            <button @click="submitRating('Easy')" class="rating-btn">Easy</button>
-            <button @click="submitRating('Very Easy')" class="rating-btn">Very Easy</button>
-        </div>
+        <span class="card-counter">{{ cardStatus }}</span>
+      </div>
     </div>
-    <div v-else>Loading...</div> 
+
+    <div class="flashcard-wrapper">
+      <div class="flashcard-content" @click="toggleFlip" :class="{ 'flipped': isFlipped }">
+        <div class="flashcard">
+          <div class="flashcard-front">
+            <div class="card-inner">
+              <img v-if="!(currentSet.wordResponses[currentCard]?.image === null)"
+                   :src="currentSet.wordResponses[currentCard].image"
+                   alt="Flashcard Image"
+                   class="card-image" />
+              <h2 class="word-text" :class="{ 'word-only': currentSet.wordResponses[currentCard]?.image === null }">
+                {{ currentSet.wordResponses[currentCard].word }}
+              </h2>
+              <div class="flip-hint">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                  <path d="M21 3v5h-5"/>
+                  <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                  <path d="M3 21v-5h5"/>
+                </svg>
+                <span>Click to flip</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flashcard-back">
+            <div class="card-inner">
+              <div class="pronunciation">
+                <span class="ipa">{{ currentSet.wordResponses[currentCard].ipa }}</span>
+                <button v-if="currentSet.wordResponses[currentCard].audio"
+                        class="audio-btn"
+                        @click.stop="playAudio"
+                        title="Play pronunciation">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 9v6h4l5 5V4L7 9H3z"/>
+                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                  </svg>
+                </button>
+              </div>
+
+              <div class="definition">{{ currentSet.wordResponses[currentCard].definition }}</div>
+
+              <div class="example" v-if="currentSet.wordResponses[currentCard].example">
+                <span class="example-label">Example:</span>
+                <span class="example-text">{{ currentSet.wordResponses[currentCard].example }}</span>
+              </div>
+
+              <div class="flip-hint">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                  <path d="M21 3v5h-5"/>
+                  <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                  <path d="M3 21v-5h5"/>
+                </svg>
+                <span>Click to flip back</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rating-section">
+      <h3 class="rating-title">How well do you know this word?</h3>
+      <div class="flashcard-rating">
+        <button @click="submitRating('Very Difficult')" class="rating-btn very-difficult">
+          <span class="rating-emoji">😰</span>
+          <span>Very Difficult</span>
+        </button>
+        <button @click="submitRating('Difficult')" class="rating-btn difficult">
+          <span class="rating-emoji">😕</span>
+          <span>Difficult</span>
+        </button>
+        <button @click="submitRating('Easy')" class="rating-btn easy">
+          <span class="rating-emoji">🙂</span>
+          <span>Easy</span>
+        </button>
+        <button @click="submitRating('Very Easy')" class="rating-btn very-easy">
+          <span class="rating-emoji">😎</span>
+          <span>Very Easy</span>
+        </button>
+      </div>
+    </div>
+  </div>
+  <div v-else class="loading">
+    <div class="loading-spinner"></div>
+    <p>Loading flashcards...</p>
+  </div>
 </template>
 
 <style scoped>
-    .flashcard-container {
-        width: 600px; 
-        margin: 40px auto;
-        padding: 20px;
-        text-align: center;
-    }
+* {
+  box-sizing: border-box;
+}
 
-    .flashcard-header {
-        display: flex;
-        justify-content: center;
-        flex-direction: column;
-        align-items: center;
-        font-size: 1.2em;
-    }
+.flashcard-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 20px;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding-top: 100px; /* Add space for header */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
 
-    .flashcard-content {
-        width: 100%;
-        padding: 20px;
-        border-radius: 10px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); 
-        background-color: #f9f9f9;
-        border: none;
-    }
+.flashcard-header {
+  text-align: center;
+  margin-bottom: 25px;
+  color: white;
+}
 
-    .flashcard-front{
-        width: 100%;
-        max-width: 350px; 
-        min-height: 200px;
-        margin: 0 auto;
-        text-align: center;
-        align-content: center;
-    }
-    
-    .flashcard img {
-        max-width: 100%; /* Ảnh sẽ không vượt quá chiều rộng của flashcard */
-        max-height: 300px;
-        object-fit: cover; 
-        border-radius: 8px;
-    }
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  gap: 20px;
+}
 
-    .flashcard p{
-        margin: 10px;
-        font-size: 25px;
-    }
+.nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,0.2);
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 25px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  font-size: 0.9rem;
+}
 
-    .flashcard-word {
-        font-size: 1.5em;
-        margin-top: 10px;
-    }
+.nav-btn:hover {
+  background: rgba(255,255,255,0.3);
+  transform: translateY(-2px);
+}
 
-    .flashcard-rating {
-        display: flex;
-        justify-content: space-between;
-        margin-top: 20px;
-        gap: 10px;
-    }
+.set-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin: 0;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  flex: 1;
+  text-align: center;
+}
 
-    .rating-btn {
-        background-color: #DBF3F7;
-        border: 1px solid #d3d3d3; 
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); 
-        padding: 10px 0;
-        border-radius: 5px;
-        cursor: pointer;
-        transition: background-color 0.3s;
-        width: 100%; 
-        text-align: center;
-        font-size: 1em;
-    }
+.progress-section {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  justify-content: center;
+  margin-top: 10px;
+}
 
-    .rating-btn:hover {
-        background-color: #91e3df;
-    }
-    .flashcard-content {
-        perspective: 1000px; /* Tạo hiệu ứng 3D */
-    }
-    
-    .flashcard-back{
-        max-width: 500px; 
-        min-height: 200px;
-        align-content: center;
-        /* margin: 40px auto; */
-        /* padding: 20px; */
-        text-align: center;
-        /* font-size: 25px; */
-    }
+.progress-bar {
+  flex: 1;
+  max-width: 250px;
+  height: 6px;
+  background: rgba(255,255,255,0.3);
+  border-radius: 10px;
+  overflow: hidden;
+}
 
-    .flashcard-back .ipa{
-        font-size: 20px;
-    }
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+  border-radius: 10px;
+  transition: width 0.5s ease;
+}
 
-    .flashcard .definition{
-        font-size:25px;
-        margin-bottom: 30px;
-    }
+.card-counter {
+  font-size: 1rem;
+  font-weight: 600;
+  background: rgba(255,255,255,0.2);
+  padding: 6px 12px;
+  border-radius: 15px;
+  backdrop-filter: blur(10px);
+}
 
-    .flashcard .example{
-        font-size: 20px;
-    }
+.flashcard-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 25px;
+  flex: 1;
+  align-items: center;
+}
 
-    .audio-icon{
-        display: flex; 
-        justify-content: center; 
-        align-items: center; 
-        width: 40px;
-        height: 40px; 
-        margin: 0 auto; 
-    }
-    .audio-btn {
-        background-color: #4CAF50;
-        color: white;
-        padding: 10px;
-        border: none;
-        cursor: pointer;
-    }
-    .audio-btn:hover {
-        background-color: #45a049;
-    }
+.flashcard-content {
+  width: 100%;
+  max-width: 420px;
+  height: 300px;
+  perspective: 1000px;
+  cursor: pointer;
+}
+
+.flashcard {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.8s;
+  transform-style: preserve-3d;
+}
+
+.flashcard-content.flipped .flashcard {
+  transform: rotateY(180deg);
+}
+
+.flashcard-front,
+.flashcard-back {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  border-radius: 20px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+  background: white;
+  overflow: hidden;
+}
+
+.flashcard-back {
+  transform: rotateY(180deg);
+}
+
+.card-inner {
+  padding: 20px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  position: relative;
+}
+
+.card-image {
+  max-width: 100%;
+  max-height: 120px;
+  object-fit: cover;
+  border-radius: 12px;
+  margin-bottom: 15px;
+  box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+}
+
+.word-text {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #2d3748;
+  margin: 0;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.word-text.word-only {
+  font-size: 2.2rem;
+}
+
+.pronunciation {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 15px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 20px;
+  color: white;
+}
+
+.ipa {
+  font-size: 1.1rem;
+  font-weight: 500;
+  font-family: 'Times New Roman', serif;
+}
+
+.audio-btn {
+  background: rgba(255,255,255,0.2);
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: white;
+}
+
+.audio-btn:hover {
+  background: rgba(255,255,255,0.3);
+  transform: scale(1.1);
+}
+
+.definition {
+  font-size: 1.1rem;
+  line-height: 1.5;
+  color: #2d3748;
+  margin-bottom: 15px;
+  font-weight: 500;
+}
+
+.example {
+  background: #f7fafc;
+  padding: 10px 15px;
+  border-radius: 12px;
+  border-left: 3px solid #667eea;
+  margin-bottom: 15px;
+  text-align: left;
+  width: 100%;
+  font-size: 0.9rem;
+}
+
+.example-label {
+  font-weight: 600;
+  color: #667eea;
+  display: block;
+  margin-bottom: 3px;
+  font-size: 0.8rem;
+}
+
+.example-text {
+  font-style: italic;
+  color: #4a5568;
+  line-height: 1.4;
+}
+
+.flip-hint {
+  position: absolute;
+  bottom: 10px;
+  right: 15px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #a0aec0;
+  font-size: 0.8rem;
+  opacity: 0.6;
+  transition: opacity 0.3s ease;
+}
+
+.flashcard-content:hover .flip-hint {
+  opacity: 1;
+}
+
+.rating-section {
+  text-align: center;
+}
+
+.rating-title {
+  color: white;
+  font-size: 1.1rem;
+  margin-bottom: 15px;
+  font-weight: 600;
+}
+
+.flashcard-rating {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.rating-btn {
+  background: white;
+  border: none;
+  padding: 12px 15px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.9rem;
+  font-weight: 600;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.rating-emoji {
+  font-size: 1.2rem;
+}
+
+.very-difficult {
+  color: #e53e3e;
+}
+
+.difficult {
+  color: #ff8c00;
+}
+
+.easy {
+  color: #38a169;
+}
+
+.very-easy {
+  color: #3182ce;
+}
+
+.rating-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+}
+
+.very-difficult:hover {
+  background: linear-gradient(135deg, #fed7d7, #feb2b2);
+}
+
+.difficult:hover {
+  background: linear-gradient(135deg, #ffeaa7, #fdcb6e);
+}
+
+.easy:hover {
+  background: linear-gradient(135deg, #c6f6d5, #9ae6b4);
+}
+
+.very-easy:hover {
+  background: linear-gradient(135deg, #bee3f8, #90cdf4);
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  color: white;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(255,255,255,0.3);
+  border-top: 4px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .flashcard-container {
+    padding: 15px;
+    padding-top: 80px;
+  }
+
+  .header-top {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .nav-btn {
+    font-size: 0.8rem;
+    padding: 8px 12px;
+  }
+
+  .set-title {
+    font-size: 1.4rem;
+  }
+
+  .flashcard-content {
+    height: 280px;
+    max-width: 350px;
+  }
+
+  .card-inner {
+    padding: 15px;
+  }
+
+  .word-text {
+    font-size: 1.5rem;
+  }
+
+  .word-text.word-only {
+    font-size: 1.8rem;
+  }
+
+  .flashcard-rating {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .rating-btn {
+    padding: 10px 12px;
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .progress-section {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .progress-bar {
+    width: 100%;
+  }
+
+  .flashcard-rating {
+    grid-template-columns: 1fr;
+  }
+
+  .nav-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (min-height: 800px) {
+  .flashcard-container {
+    justify-content: space-evenly;
+  }
+}
+
+.nav-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.nav-btn.disabled:hover {
+  background: rgba(255,255,255,0.2);
+  transform: none;
+}
 </style>
