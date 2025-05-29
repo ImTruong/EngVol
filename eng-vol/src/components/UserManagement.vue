@@ -1,109 +1,119 @@
 <script setup>
-import { ref, onMounted } from 'vue';
-import { getAllUsers, deleteUser, updateUserRole, updateUserPassword, reActivateUser } from '@/apis/userApi.js';
+import { ref, onMounted } from 'vue'; // Import các hàm reactive và lifecycle hook từ Vue
+import { getAllUsers, deleteUser, updateUserRole, updateUserPassword, reActivateUser } from '@/apis/userApi.js'; // Import các API liên quan đến người dùng
 
-const users = ref([]);
-const search = ref('');
-const page = ref(0);
-const size = ref(10);
-const selectedUser = ref(null);
-const showPasswordModal = ref(false);
-const showRoleModal = ref(false);
-const newPassword = ref('');
-const passwordError = ref('');
-const isLoading = ref(false);
-const searchType = ref('all'); // 'all', 'username', or 'email'
-const newRole = ref('USER'); // Added this missing variable
+// Biến reactive để quản lý trạng thái và dữ liệu
+const users = ref([]); // Danh sách người dùng
+const search = ref(''); // Giá trị tìm kiếm
+const page = ref(0); // Trang hiện tại
+const size = ref(10); // Số lượng người dùng trên mỗi trang
+const selectedUser = ref(null); // Người dùng được chọn để chỉnh sửa
+const showPasswordModal = ref(false); // Trạng thái hiển thị modal đổi mật khẩu
+const showRoleModal = ref(false); // Trạng thái hiển thị modal chỉnh sửa vai trò
+const newPassword = ref(''); // Mật khẩu mới
+const passwordError = ref(''); // Lỗi khi nhập mật khẩu
+const isLoading = ref(false); // Trạng thái tải dữ liệu
+const searchType = ref('all'); // Loại tìm kiếm ('all', 'username', hoặc 'email')
+const newRole = ref('USER'); // Vai trò mới của người dùng
 
+// Hàm lấy danh sách người dùng từ API
 const fetchUsers = async () => {
   try {
-    isLoading.value = true;
-    const token = localStorage.getItem('token');
-    const usersData = await getAllUsers(token, search.value, search.value, page.value, size.value);
-    users.value = usersData.content;
-    isLoading.value = false;
+    isLoading.value = true; // Bật trạng thái tải
+    const token = localStorage.getItem('token'); // Lấy token từ localStorage
+    const usersData = await getAllUsers(token, search.value, search.value, page.value, size.value); // Gọi API để lấy danh sách người dùng
+    users.value = usersData.content; // Lưu danh sách người dùng vào biến reactive
+    isLoading.value = false; // Tắt trạng thái tải
   } catch (error) {
-    console.error('Error fetching users:', error);
-    isLoading.value = false;
+    console.error('Error fetching users:', error); // Log lỗi nếu có
+    isLoading.value = false; // Tắt trạng thái tải
   }
 };
 
+// Hàm mở modal đổi mật khẩu
 const openPasswordModal = (user) => {
-  selectedUser.value = user;
-  showPasswordModal.value = true;
-  newPassword.value = '';
-  passwordError.value = '';
+  selectedUser.value = user; // Lưu người dùng được chọn
+  showPasswordModal.value = true; // Hiển thị modal đổi mật khẩu
+  newPassword.value = ''; // Đặt lại giá trị mật khẩu mới
+  passwordError.value = ''; // Đặt lại lỗi mật khẩu
 };
 
+// Hàm mở modal chỉnh sửa vai trò
 const openRoleModal = (user) => {
-  selectedUser.value = user;
-  showRoleModal.value = true;
-  newRole.value = user.role || 'USER';
+  selectedUser.value = user; // Lưu người dùng được chọn
+  showRoleModal.value = true; // Hiển thị modal chỉnh sửa vai trò
+  newRole.value = user.role || 'USER'; // Đặt vai trò mặc định là 'USER' nếu không có
 };
 
+// Hàm xác nhận xóa người dùng
 const confirmDelete = async (userId) => {
-  if (confirm('Are you sure you want to delete this user?')) {
+  if (confirm('Are you sure you want to delete this user?')) { // Hiển thị hộp thoại xác nhận
     try {
-      const token = localStorage.getItem('token');
-      await deleteUser(token, userId);
-      await fetchUsers(); // Refresh the list
+      const token = localStorage.getItem('token'); // Lấy token từ localStorage
+      await deleteUser(token, userId); // Gọi API để xóa người dùng
+      await fetchUsers(); // Làm mới danh sách người dùng
     } catch (error) {
-      console.error('Error deleting user:', error);
-      alert('Unable to delete user. Please try again later.');
+      console.error('Error deleting user:', error); // Log lỗi nếu có
+      alert('Unable to delete user. Please try again later.'); // Hiển thị thông báo lỗi
     }
   }
 };
 
+// Hàm xác nhận kích hoạt lại người dùng
 const confirmReactivate = async (userId) => {
-  if (confirm('Are you sure you want to reactivate this user?')) {
+  if (confirm('Are you sure you want to reactivate this user?')) { // Hiển thị hộp thoại xác nhận
     try {
-      const token = localStorage.getItem('token');
-      await reActivateUser(token, userId);
-      await fetchUsers(); // Refresh the list
+      const token = localStorage.getItem('token'); // Lấy token từ localStorage
+      await reActivateUser(token, userId); // Gọi API để kích hoạt lại người dùng
+      await fetchUsers(); // Làm mới danh sách người dùng
     } catch (error) {
-      console.error('Error reactivating user:', error);
-      alert('Unable to reactivate user. Please try again later.');
+      console.error('Error reactivating user:', error); // Log lỗi nếu có
+      alert('Unable to reactivate user. Please try again later.'); // Hiển thị thông báo lỗi
     }
   }
 };
 
+// Hàm cập nhật mật khẩu
 const updatePassword = async () => {
-  if (!newPassword.value) {
-    passwordError.value = 'Please enter a new password';
+  if (!newPassword.value) { // Kiểm tra nếu mật khẩu mới bị bỏ trống
+    passwordError.value = 'Please enter a new password'; // Hiển thị lỗi
     return;
   }
 
   try {
-    const token = localStorage.getItem('token');
-    alert(await updateUserPassword(token, selectedUser.value.id, newPassword.value));
-    showPasswordModal.value = false;
+    const token = localStorage.getItem('token'); // Lấy token từ localStorage
+    alert(await updateUserPassword(token, selectedUser.value.id, newPassword.value)); // Gọi API để cập nhật mật khẩu và hiển thị thông báo
+    showPasswordModal.value = false; // Đóng modal đổi mật khẩu
   } catch (error) {
-    console.error('Error updating password:', error);
-    passwordError.value = 'Unable to update password. Please try again later.';
+    console.error('Error updating password:', error); // Log lỗi nếu có
+    passwordError.value = 'Unable to update password. Please try again later.'; // Hiển thị lỗi
   }
 };
 
+// Hàm cập nhật vai trò
 const updateRole = async () => {
   try {
-    const token = localStorage.getItem('token');
-    const roleId = newRole.value === 'ADMIN' ? 1 : 2;
-    await updateUserRole(token, selectedUser.value.id, roleId);
-    showRoleModal.value = false;
-    alert('Role updated successfully');
-    await fetchUsers(); // Refresh the list
+    const token = localStorage.getItem('token'); // Lấy token từ localStorage
+    const roleId = newRole.value === 'ADMIN' ? 1 : 2; // Xác định ID vai trò dựa trên giá trị vai trò
+    await updateUserRole(token, selectedUser.value.id, roleId); // Gọi API để cập nhật vai trò
+    showRoleModal.value = false; // Đóng modal chỉnh sửa vai trò
+    alert('Role updated successfully'); // Hiển thị thông báo thành công
+    await fetchUsers(); // Làm mới danh sách người dùng
   } catch (error) {
-    console.error('Error updating role:', error);
-    alert('Unable to update role. Please try again later.');
+    console.error('Error updating role:', error); // Log lỗi nếu có
+    alert('Unable to update role. Please try again later.'); // Hiển thị thông báo lỗi
   }
 };
 
+// Hàm xử lý tìm kiếm
 const handleSearch = () => {
-  page.value = 0; // Reset to first page when searching
-  fetchUsers();
+  page.value = 0; // Đặt lại trang về 0 khi tìm kiếm
+  fetchUsers(); // Gọi hàm lấy danh sách người dùng
 };
 
+// Lifecycle hook khi component được mount
 onMounted(() => {
-  fetchUsers();
+  fetchUsers(); // Lấy danh sách người dùng khi component được mount
 });
 </script>
 

@@ -1,77 +1,88 @@
 <script setup>
-  import {ref, defineProps} from "vue"
-  import {useRouter} from "vue-router"
-  import SetTable from "../components/SetTable.vue"
-  import { useStore } from 'vuex';
-  import { deleteSet } from "@/apis/setApi";
-  import { defineEmits } from 'vue';
+import { ref, defineProps } from "vue"; // Import các hàm reactive và props từ Vue
+import { useRouter } from "vue-router"; // Import router để điều hướng giữa các trang
+import SetTable from "../components/SetTable.vue"; // Import component SetTable để hiển thị bảng thông tin bộ flashcard
+import { useStore } from 'vuex'; // Import Vuex để quản lý trạng thái toàn cục
+import { deleteSet } from "@/apis/setApi"; // Import API để xóa bộ flashcard
+import { defineEmits } from 'vue'; // Import hàm để định nghĩa các sự kiện phát ra từ component
 
-  const emit = defineEmits(['reload']);
-  const hover  = ref(false);
-  const router = useRouter();
-  const props = defineProps(['set', 'classId']);
-  const setTable = ref(false); 
-  const existingSet = ref({});
-  const isEditMode = ref(false);
-  const token = localStorage.getItem("token");
+// Định nghĩa sự kiện phát ra từ component
+const emit = defineEmits(['reload']);
 
-  const store = useStore();
+// Biến reactive để quản lý trạng thái
+const hover = ref(false); // Trạng thái hover của thẻ
+const router = useRouter(); // Khởi tạo router để điều hướng
+const props = defineProps(['set', 'classId']); // Định nghĩa các props được truyền vào component
+const setTable = ref(false); // Trạng thái hiển thị bảng thông tin bộ flashcard
+const existingSet = ref({}); // Bộ flashcard hiện tại
+const isEditMode = ref(false); // Trạng thái chỉnh sửa bộ flashcard
+const token = localStorage.getItem("token"); // Lấy token từ localStorage
 
-  const editSet = () => {
-    showSetTable(true, props.set)
+const store = useStore(); // Khởi tạo store để truy cập trạng thái toàn cục
+
+// Hàm chỉnh sửa bộ flashcard
+const editSet = () => {
+  showSetTable(true, props.set); // Hiển thị bảng thông tin bộ flashcard với chế độ chỉnh sửa
+};
+
+// Hàm reload dữ liệu
+const reload = () => {
+  emit("reload"); // Phát sự kiện reload
+};
+
+// Hàm cập nhật bộ flashcard hiện tại trong Vuex
+const updateCurrentSet = (set) => {
+  store.dispatch('setModule/setCurrentSet', set); // Dispatch hành động để cập nhật bộ flashcard
+};
+
+// Hàm bắt đầu trò chơi với bộ flashcard
+const gameSet = () => {
+  if (!props.set.wordResponses || props.set.wordResponses.length === 0) {
+    alert("No words in this set!"); // Hiển thị thông báo nếu bộ flashcard không có từ
+    return;
   }
+  updateCurrentSet(props.set); // Cập nhật bộ flashcard hiện tại
+  router.push(`/fillgame/${props.set.id}`); // Điều hướng đến trang trò chơi
+};
 
-  const reload = () => {
-    emit("reload");
+// Hàm bắt đầu học với bộ flashcard
+const studySet = () => {
+  if (!props.set.wordResponses || props.set.wordResponses.length === 0) {
+    alert("Please add words before studying!"); // Hiển thị thông báo nếu bộ flashcard không có từ
+    return;
   }
+  updateCurrentSet(props.set); // Cập nhật bộ flashcard hiện tại
+  router.push(`/flashcard/${props.set.id}`); // Điều hướng đến trang học
+};
 
-  const updateCurrentSet = (set) => {
-    store.dispatch('setModule/setCurrentSet', set);
-  };
+// Hàm hiển thị bảng thông tin bộ flashcard
+const showSetTable = (editMode, existingSetData) => {
+  setTable.value = true; // Bật trạng thái hiển thị bảng
+  isEditMode.value = editMode; // Cập nhật trạng thái chỉnh sửa
+  existingSet.value = existingSetData; // Cập nhật dữ liệu bộ flashcard hiện tại
+};
 
-  const gameSet = () => {
-    if (!props.set.wordResponses || props.set.wordResponses.length === 0) {
-        alert("No words in this set!");
-        return; 
-    }
-    updateCurrentSet(props.set);
-    router.push(`/fillgame/${props.set.id}`);
+// Hàm đóng bảng thông tin bộ flashcard
+const closeSetTable = () => {
+  setTable.value = false; // Tắt trạng thái hiển thị bảng
+};
+
+// Hàm xử lý cập nhật danh sách từ trong bộ flashcard
+const handleUpdate = (updatedRows) => {
+  existingSet.value.wordListResponses = updatedRows; // Cập nhật danh sách từ
+  emit("reload"); // Phát sự kiện reload
+};
+
+// Hàm xóa bộ flashcard
+const handleDeleteSet = async () => {
+  try {
+    await deleteSet(props.set.id, token); // Gọi API để xóa bộ flashcard
+    alert("Set deleted successfully!"); // Hiển thị thông báo thành công
+    emit("reload"); // Phát sự kiện reload
+  } catch (error) {
+    alert(error); // Hiển thị lỗi nếu có
   }
-
-  const studySet = () => {
-    if (!props.set.wordResponses || props.set.wordResponses.length === 0) {
-        alert("Please add words before studying!");
-        return;
-    }
-    updateCurrentSet(props.set);
-    router.push(`/flashcard/${props.set.id}`);
-  };
-
-  const showSetTable = (editMode, existingSetData) => {
-    setTable.value = true; 
-    isEditMode.value = editMode; 
-    existingSet.value = existingSetData;
-  }
-
-  const closeSetTable = () => {
-    setTable.value = false;
-  };
-
-  const handleUpdate = (updatedRows) => {
-    existingSet.value.wordListResponses = updatedRows;
-    emit("reload")
-  };
-
-  const handleDeleteSet = async () => {
-    try {
-      await deleteSet(props.set.id, token);
-      alert("Set deleted successfully!");
-      emit("reload");
-    } catch (error) {
-      alert(error)
-    }
-  }
-
+};
 </script>
 
 <template>

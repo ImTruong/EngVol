@@ -6,50 +6,51 @@ import { userRemindWord } from '@/apis/wordApi';
 import { createStudySession } from "@/apis/studyApi.js";
 
 // Constants
-const BATCH_SIZE = 20; // Number of cards to load per batch
-const LOAD_THRESHOLD = 5; // Load more cards when this many remain
+const BATCH_SIZE = 20; // Số lượng thẻ từ cần tải mỗi lần (mỗi batch)
+const LOAD_THRESHOLD = 5; // Khi còn ít thẻ từ hơn số này, sẽ tải thêm
 
-// Reactive state
-const cards = ref([]);
-const currentCardIndex = ref(0);
-const isFlipped = ref(false);
-const isCompleted = ref(false);
-const isLoading = ref(true);
-const loadingMore = ref(false);
-const hasMoreCards = ref(true);
-const totalCardCount = ref(0);
-const currentPage = ref(0);
+// Reactive state (Trạng thái phản ứng)
+const cards = ref([]); // Danh sách các thẻ từ
+const currentCardIndex = ref(0); // Chỉ số của thẻ từ hiện tại
+const isFlipped = ref(false); // Trạng thái của thẻ (đã lật hay chưa)
+const isCompleted = ref(false); // Kiểm tra nếu đã hoàn thành việc học thẻ từ
+const isLoading = ref(true); // Kiểm tra nếu đang tải thẻ từ
+const loadingMore = ref(false); // Kiểm tra nếu đang tải thêm thẻ từ
+const hasMoreCards = ref(true); // Kiểm tra nếu còn thẻ từ để tải
+const totalCardCount = ref(0); // Tổng số thẻ từ
+const currentPage = ref(0); // Trang hiện tại
 
-// Router and token
+// Router và token người dùng
 const router = useRouter();
-const token = localStorage.getItem('token');
+const token = localStorage.getItem('token'); // Lấy token từ localStorage
 
-// Current card info
+// Thông tin về thẻ từ hiện tại
 const currentCard = computed(() => cards.value[currentCardIndex.value] || {});
 
-// Progress bar and card status
+// Thông tin về tiến trình thẻ từ
 const cardStatus = computed(() => {
   if (totalCardCount.value > 0) {
-    return `${currentCardIndex.value + 1}/${totalCardCount.value || '?'}`;
+    return `${currentCardIndex.value + 1}/${totalCardCount.value || '?'}`; // Trạng thái hiển thị thẻ từ
   }
   return '0/0';
 });
-const progress = computed(() => ((currentCardIndex.value + 1) / totalCardCount.value) * 100);
+const progress = computed(() => ((currentCardIndex.value + 1) / totalCardCount.value) * 100); // Tiến trình học thẻ từ
 
-// Check if more cards should be loaded
+// Kiểm tra xem có cần tải thêm thẻ từ không
 const shouldLoadMore = computed(() => {
   return hasMoreCards.value &&
       cards.value.length - currentCardIndex.value <= LOAD_THRESHOLD &&
       !loadingMore.value;
 });
 
-// Fetch cards from API
+// Fetch cards from API (Lấy thẻ từ từ API)
 const fetchCards = async (page = 0, append = false) => {
   try {
     loadingMore.value = true;
-    const response = await userRemindWord(token, page, BATCH_SIZE);
+    const response = await userRemindWord(token, page, BATCH_SIZE); // Gọi API để lấy dữ liệu thẻ từ
     const cardsData = response.content || response;
 
+    // Lưu tổng số thẻ từ
     if (response.totalElements !== undefined) {
       totalCardCount.value = response.totalElements;
     }
@@ -65,13 +66,13 @@ const fetchCards = async (page = 0, append = false) => {
     }
 
     if (append) {
-      cards.value = [...cards.value, ...cardsData];
+      cards.value = [...cards.value, ...cardsData]; // Thêm dữ liệu mới vào danh sách thẻ từ
     } else {
-      cards.value = cardsData;
-      restoreProgress();
+      cards.value = cardsData; // Thay thế danh sách thẻ từ hiện tại
+      restoreProgress(); // Khôi phục tiến trình học
     }
 
-    currentPage.value = page;
+    currentPage.value = page; // Cập nhật trang hiện tại
   } catch (error) {
     console.error("Error fetching flashcards:", error);
     alert("Failed to load flashcards. Please try again.");
@@ -81,14 +82,14 @@ const fetchCards = async (page = 0, append = false) => {
   }
 };
 
-// Watch for when more cards should be loaded
+// Watch for when more cards should be loaded (Theo dõi khi nào cần tải thêm thẻ từ)
 watch(shouldLoadMore, (shouldLoad) => {
   if (shouldLoad) {
-    fetchCards(currentPage.value + 1, true);
+    fetchCards(currentPage.value + 1, true); // Tải thêm thẻ từ nếu cần
   }
 });
 
-// Save progress to localStorage
+// Save progress to localStorage (Lưu tiến trình vào localStorage)
 const saveProgress = () => {
   localStorage.setItem('flashcard-progress', JSON.stringify({
     currentIndex: currentCardIndex.value,
@@ -97,7 +98,7 @@ const saveProgress = () => {
   }));
 };
 
-// Restore progress from localStorage
+// Restore progress from localStorage (Khôi phục tiến trình từ localStorage)
 const restoreProgress = () => {
   const savedProgress = localStorage.getItem('flashcard-progress');
   if (savedProgress) {
@@ -107,17 +108,17 @@ const restoreProgress = () => {
     const hoursDiff = (now - lastUpdate) / (1000 * 60 * 60);
 
     if (hoursDiff < 24 && progress.currentIndex < cards.value.length) {
-      currentCardIndex.value = progress.currentIndex;
+      currentCardIndex.value = progress.currentIndex; // Khôi phục chỉ số thẻ từ
     } else {
-      localStorage.removeItem('flashcard-progress');
+      localStorage.removeItem('flashcard-progress'); // Xóa tiến trình nếu đã quá 24h
     }
   }
 };
 
-// Navigate to the next card
+// Navigate to the next card (Chuyển sang thẻ từ tiếp theo)
 const nextCard = () => {
   if (currentCardIndex.value + 1 >= cards.value.length && !hasMoreCards.value) {
-    isCompleted.value = true;
+    isCompleted.value = true; // Đánh dấu hoàn thành nếu đã hết thẻ từ
   } else if (currentCardIndex.value + 1 >= cards.value.length && hasMoreCards.value) {
     loadMoreCards().then(() => {
       isFlipped.value = false;
@@ -131,7 +132,7 @@ const nextCard = () => {
   }
 };
 
-// Navigate to the previous card
+// Navigate to the previous card (Chuyển về thẻ từ trước đó)
 const previousCard = () => {
   if (currentCardIndex.value > 0) {
     isFlipped.value = false;
@@ -140,16 +141,17 @@ const previousCard = () => {
   }
 };
 
-// Load more cards
+// Load more cards (Tải thêm thẻ từ)
 const loadMoreCards = async () => {
   if (!hasMoreCards.value || loadingMore.value) return;
 
   try {
     loadingMore.value = true;
     const nextPage = currentPage.value + 1;
-    const response = await userRemindWord(token, nextPage, BATCH_SIZE);
+    const response = await userRemindWord(token, nextPage, BATCH_SIZE); // Gọi API để lấy thẻ từ
     const cardsData = response.content || [];
 
+    // Cập nhật tổng số thẻ từ và trạng thái có thêm thẻ từ hay không
     if (response.totalElements !== undefined) {
       totalCardCount.value = response.totalElements;
     }
@@ -161,8 +163,8 @@ const loadMoreCards = async () => {
       }
     }
 
-    cards.value = [...cards.value, ...cardsData];
-    currentPage.value = nextPage;
+    cards.value = [...cards.value, ...cardsData]; // Thêm thẻ từ mới vào danh sách
+    currentPage.value = nextPage; // Cập nhật trang hiện tại
   } catch (error) {
     console.error("Error fetching more flashcards:", error);
   } finally {
@@ -170,50 +172,51 @@ const loadMoreCards = async () => {
   }
 };
 
-// Toggle card flip
+// Toggle card flip (Lật thẻ từ)
 const toggleFlip = () => {
-  isFlipped.value = !isFlipped.value;
+  isFlipped.value = !isFlipped.value; // Chuyển trạng thái lật thẻ từ
 };
 
-// Play audio
+// Play audio (Phát âm thanh)
 const playAudio = (event) => {
-  event.stopPropagation();
+  event.stopPropagation(); // Ngừng sự kiện lan tỏa
   if (currentCard.value?.audio) {
-    const audio = new Audio(currentCard.value.audio);
-    audio.play();
+    const audio = new Audio(currentCard.value.audio); // Tạo đối tượng Audio
+    audio.play(); // Phát âm thanh
   }
 };
 
-// Submit rating and move to next card
+// Submit rating and move to next card (Gửi đánh giá và chuyển thẻ từ tiếp theo)
 const submitRating = async (rating) => {
   try {
     const studySessionData = {
       wordId: currentCard.value.id,
       difficulty: rating
     };
-    await createStudySession(token, studySessionData);
+    await createStudySession(token, studySessionData); // Gửi dữ liệu đánh giá
   } catch (error) {
     console.error("Error creating study session:", error);
   }
-  nextCard();
+  nextCard(); // Chuyển sang thẻ từ tiếp theo
 };
 
-// Handle completion
+// Handle completion (Xử lý hoàn thành)
 const handleComplete = () => {
-  localStorage.removeItem('flashcard-progress');
-  router.push('/');
+  localStorage.removeItem('flashcard-progress'); // Xóa tiến trình
+  router.push('/'); // Chuyển hướng về trang chủ
 };
 
-// Initialize
+// Initialize (Khởi tạo khi trang được load)
 onMounted(() => {
   if (!token) {
     alert('Login to use this feature');
-    window.location.href = '/login';
+    window.location.href = '/login'; // Chuyển hướng nếu người dùng chưa đăng nhập
     return;
   }
-  fetchCards();
+  fetchCards(); // Lấy thẻ từ khi trang được tải
 });
 </script>
+
 
 <template>
   <Header></Header>

@@ -1,69 +1,79 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
-import { useRouter } from 'vue-router';
-import { useStore } from 'vuex';
-import Header from "../components/Header.vue";
-import {createStudySession} from "@/apis/studyApi.js";
+import { ref, computed, onMounted, watch } from 'vue';  // Các hàm cần thiết từ Vue
+import { useRouter } from 'vue-router';  // Để điều hướng trang
+import { useStore } from 'vuex';  // Dùng Vuex store để quản lý trạng thái
+import Header from "../components/Header.vue";  // Import Header component
+import { createStudySession } from "@/apis/studyApi.js";  // API để tạo phiên học (study session)
 
-const store = useStore();
-const router = useRouter();
-const currentCard = ref(0);
-const isFlipped = ref(false);
-const currentSet = computed(() => store.state.setModule.currentSet);
-const totalCards = computed(() => currentSet.value ? currentSet.value.wordResponses.length : 0);
-const cardStatus = computed(() => `${currentCard.value + 1}/${totalCards.value}`);
-const progress = computed(() => ((currentCard.value + 1) / totalCards.value) * 100);
+const store = useStore();  // Khởi tạo Vuex store
+const router = useRouter();  // Khởi tạo Vue Router
 
+// Các reactive state
+const currentCard = ref(0);  // Card hiện tại (mặc định là card đầu tiên)
+const isFlipped = ref(false);  // Trạng thái card có bị lật hay không (mặt trước hay mặt sau)
+const currentSet = computed(() => store.state.setModule.currentSet);  // Set học hiện tại từ Vuex store
+const totalCards = computed(() => currentSet.value ? currentSet.value.wordResponses.length : 0);  // Tổng số thẻ trong set học
+const cardStatus = computed(() => `${currentCard.value + 1}/${totalCards.value}`);  // Trạng thái hiển thị số thẻ hiện tại
+const progress = computed(() => ((currentCard.value + 1) / totalCards.value) * 100);  // Tính toán tiến trình học (progres)
+
+
+// Hàm phát âm thanh khi người dùng nhấn vào thẻ
 const playAudio = () => {
-  const audio = new Audio(currentSet.value.wordResponses[currentCard.value].audio);
-  audio.play();
+  const audio = new Audio(currentSet.value.wordResponses[currentCard.value].audio);  // Tạo một đối tượng Audio từ link audio trong thẻ
+  audio.play();  // Phát âm thanh
 }
 
+// Chuyển sang thẻ tiếp theo
 const nextCard = () => {
-  if (currentCard.value < totalCards.value - 1) {
-    isFlipped.value = false;
-    currentCard.value += 1;
+  if (currentCard.value < totalCards.value - 1) {  // Nếu chưa đến thẻ cuối
+    isFlipped.value = false;  // Đảm bảo là thẻ không bị lật
+    currentCard.value += 1;  // Chuyển đến thẻ tiếp theo
   } else {
-    alert("Completed!");
+    alert("Completed!");  // Thông báo khi hoàn thành toàn bộ bộ thẻ
     setTimeout(() => {
-      router.push('/');
+      router.push('/');  // Điều hướng về trang chính sau khi hoàn thành
     }, 0);
   }
 };
 
+// Đảo ngược trạng thái lật thẻ
 const toggleFlip = () => {
-  isFlipped.value = !isFlipped.value;
+  isFlipped.value = !isFlipped.value;  // Đổi trạng thái lật thẻ
 }
 
+// Gửi điểm đánh giá cho thẻ (Rating) và chuyển sang thẻ tiếp theo
 const submitRating = async (rating) => {
-  try{
-    const currentWord = currentSet.value.wordResponses[currentCard.value];
+  try {
+    const currentWord = currentSet.value.wordResponses[currentCard.value];  // Lấy từ vựng hiện tại
     const studySessionData = {
-      wordId: currentWord.id,
-      difficulty: rating
+      wordId: currentWord.id,  // ID của từ vựng
+      difficulty: rating  // Đánh giá mức độ khó của từ vựng
     };
-    const token = localStorage.getItem('token');
-    await createStudySession(token, studySessionData);
-  }catch (error) {
-    console.error("Error creating study session:", error);
+    const token = localStorage.getItem('token');  // Lấy token từ localStorage
+    await createStudySession(token, studySessionData);  // Gọi API để tạo phiên học với dữ liệu
+  } catch (error) {
+    console.error("Error creating study session:", error);  // Xử lý lỗi
   }
-  nextCard();
+  nextCard();  // Chuyển sang thẻ tiếp theo
 };
 
+// Quay lại thẻ trước
 const previousCard = () => {
-  if (currentCard.value > 0) {
-    isFlipped.value = false;
-    currentCard.value -= 1;
+  if (currentCard.value > 0) {  // Nếu không phải thẻ đầu tiên
+    isFlipped.value = false;  // Đảm bảo là thẻ không bị lật
+    currentCard.value -= 1;  // Quay lại thẻ trước
   }
 };
 
+// Thao tác chuyển sang thẻ tiếp theo (có thể được dùng ở những nơi khác)
 const nextCardNav = () => {
-  if (currentCard.value < totalCards.value - 1) {
-    isFlipped.value = false;
-    currentCard.value += 1;
+  if (currentCard.value < totalCards.value - 1) {  // Nếu chưa đến thẻ cuối
+    isFlipped.value = false;  // Đảm bảo là thẻ không bị lật
+    currentCard.value += 1;  // Chuyển đến thẻ tiếp theo
   }
 };
 </script>
+
 
 <template>
   <Header></Header>

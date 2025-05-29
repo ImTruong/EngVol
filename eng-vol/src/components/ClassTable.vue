@@ -1,412 +1,3 @@
-<!--<script setup>-->
-<!--    import { ref, watch, defineEmits, defineProps, onMounted } from 'vue';-->
-<!--    import OverlayBackground from '../components/OverlayBackground.vue';-->
-<!--    import AddMember from './AddMember.vue';-->
-<!--    import { createClass, updateClassName, getMemberList, deleteMember, updateMemberRole } from '@/apis/classApi';-->
-<!--    import { getCurrentUser } from '@/apis/userApi';-->
-
-<!--    const emit = defineEmits(['close', 'save', 'reload']);-->
-<!--    const props = defineProps(['isEditMode']);-->
-
-<!--    const visible = ref(true);-->
-<!--    const className = ref(props.isEditMode ? localStorage.getItem('className') : '');-->
-<!--    const memberList = ref([]);-->
-<!--    const selectedUsers = ref([]);-->
-<!--    const showSelectColumn = ref(false);-->
-<!--    const search = ref('');-->
-<!--    const showSearch = ref(false);-->
-<!--    const showAddMember = ref(false);-->
-<!--    const roleFilter = ref('Role');-->
-<!--    const classId = ref(null);-->
-<!--    const token = localStorage.getItem('token');-->
-<!--    const isDisplayRoleSetting = ref(false);-->
-<!--    const page = ref(0);-->
-<!--    const size = ref(10);-->
-
-<!--    const saveCLassName = async () => {-->
-<!--        const token = localStorage.getItem('token');-->
-<!--        const payload = {-->
-<!--            classId: props.isEditMode ? localStorage.getItem('classId') : null,-->
-<!--            name: className.value,-->
-<!--        };-->
-<!--        try {-->
-<!--            if (props.isEditMode) {-->
-<!--                const response = await updateClassName(payload, token);-->
-<!--                alert(response);-->
-<!--                localStorage.setItem('classId', classId.value);-->
-<!--                localStorage.setItem('className', className.value);-->
-<!--            } else {-->
-<!--                const response = await createClass(payload, token);-->
-<!--                classId.value = response.classId;-->
-<!--                emit('save', response);-->
-<!--                emit('reload');-->
-<!--                memberList.value = response.memberList;-->
-<!--                localStorage.setItem('classId', classId.value);-->
-<!--                localStorage.setItem('className', className.value);-->
-<!--            }-->
-<!--        } catch (error) {-->
-<!--            console.log(error)-->
-<!--            alert(error);-->
-<!--        }-->
-<!--    };-->
-
-<!--    const removeRow = async () => {-->
-<!--        if (selectedUsers.value.length == 0) return;-->
-<!--        const token = localStorage.getItem('token');-->
-<!--        const classId = localStorage.getItem('classId');-->
-<!--        for (const userId of selectedUsers.value) {-->
-<!--            try {-->
-<!--                const user = memberList.value.find(row => row.userId == userId);-->
-<!--                if (!user) {-->
-<!--                    alert('Không tìm thấy từ với ID:', userId);-->
-<!--                    continue;-->
-<!--                }-->
-<!--                alert(await deleteMember(userId, classId, token));-->
-<!--                memberList.value = memberList.value.filter(row => row.userId !== userId);-->
-<!--                if (memberList.value.length == 0) {-->
-<!--                    emit('close');-->
-<!--                }-->
-<!--                emit('reload')-->
-<!--            } catch (error) {-->
-<!--                alert(error);-->
-<!--            }-->
-<!--        }-->
-<!--        selectedUsers.value = [];-->
-<!--        emit('update', memberList.value);-->
-<!--    };-->
-
-<!--    const closeForm = () => {-->
-<!--        emit('close');-->
-<!--        visible.value = false;-->
-<!--    };-->
-
-<!--    const toggleSelectMember = (userId) => {-->
-<!--        const index = selectedUsers.value.indexOf(userId);-->
-<!--        if (index == -1) {-->
-<!--            selectedUsers.value.push(userId);-->
-<!--        } else {-->
-<!--            selectedUsers.value.splice(index, 1);-->
-<!--        }-->
-<!--    };-->
-
-<!--    const toggleSelectColumn = () => {-->
-<!--        showSelectColumn.value = !showSelectColumn.value;-->
-<!--    };-->
-
-<!--    watch([search, showSearch], () => {-->
-<!--        if (!showSearch.value || search.value == "") {-->
-<!--            getMember();-->
-<!--        } else {-->
-<!--            memberList.value = memberList.value.filter(member => member.userName.toLowerCase().includes(search.value.toLowerCase()));-->
-<!--        }-->
-<!--    });-->
-
-<!--    const toggleSearch = () => {-->
-<!--        showSearch.value = !showSearch.value;-->
-<!--        search.value = "";-->
-<!--    };-->
-
-<!--    const openAddMember = () => {-->
-<!--        showAddMember.value = true;-->
-<!--        visible.value = false;-->
-<!--    };-->
-
-<!--    const handleSaveClassName = () => {-->
-<!--        if (className.value.trim()) {-->
-<!--            saveCLassName();-->
-<!--        } else {-->
-<!--            alert("Class name is empty!");-->
-<!--        }-->
-<!--    };-->
-
-<!--    const getMember = async () => {-->
-<!--        try {-->
-<!--            const token = localStorage.getItem('token');-->
-<!--            const response = await getMemberList(classId.value, token, page.value, size.value);-->
-<!--            memberList.value = response.memberList;-->
-<!--        } catch (error) {-->
-<!--            alert(error);-->
-<!--        }-->
-<!--    };-->
-
-<!--    const closeAddMember = () => {-->
-<!--        getMember();-->
-<!--        showAddMember.value = false;-->
-<!--        visible.value = true;-->
-<!--    };-->
-
-<!--    const updateRole = async (user) => {-->
-<!--        const payload = {-->
-<!--            userId: user.userId,-->
-<!--            classId: classId.value,-->
-<!--            role: user.role,-->
-<!--        };-->
-<!--        try {-->
-<!--            alert(await updateMemberRole(payload, token));-->
-<!--        } catch (error) {-->
-<!--            user.role = user.role == "ADMIN" ? "MEMBER" : "ADMIN";-->
-<!--            alert(error);-->
-<!--        }-->
-<!--    };-->
-
-<!--    onMounted(async () => {-->
-<!--        if (props.isEditMode) {-->
-<!--            classId.value = localStorage.getItem('classId');-->
-<!--            className.value = localStorage.getItem('className');-->
-<!--            await getMember();-->
-<!--            const currentUser = await getCurrentUser(token);-->
-<!--            for (let i = 0; i < memberList.value.length; i++) {-->
-<!--                if (memberList.value[i].role == "ADMIN" && memberList.value[i].userName == currentUser.username) {-->
-<!--                    isDisplayRoleSetting.value = true;-->
-<!--                    break;-->
-<!--                }-->
-<!--            }-->
-<!--        }-->
-<!--    });-->
-
-<!--    watch(roleFilter, () => {-->
-<!--        if (roleFilter.value == "Role") {-->
-<!--            getMember();-->
-<!--        } else {-->
-<!--            memberList.value = memberList.value.filter(member => member.role == roleFilter.value);-->
-<!--        }-->
-<!--    });-->
-<!--</script>-->
-
-
-<!--<template>-->
-<!--    <OverlayBackground :isVisible="visible" @clickOverlay="closeForm" />-->
-<!--    <div v-if="visible" class="class-window">-->
-<!--        <div class="class-header">-->
-<!--            <img src="../assets/search_icon.svg" alt="Status" @click="toggleSearch" class="search-icon">-->
-<!--            <input v-model.trim="search" v-if="showSearch" type="text" placeholder="Search for username" class="search-bar">-->
-<!--            <div class="class-name" v-if="!showSearch">-->
-<!--                <label for="class-name">Class:</label>-->
-<!--                <input id="class-name" v-model="className" placeholder="Enter class name" />-->
-<!--            </div>-->
-<!--            <button @click="closeForm" class="close-btn">✖</button>-->
-<!--        </div>-->
-
-<!--        <div class="table-container">-->
-<!--            &lt;!&ndash; {{ memberList }} &ndash;&gt;-->
-<!--            <table class="class-table">-->
-<!--                <thead>-->
-<!--                <tr>-->
-<!--                    <th v-if="showSelectColumn" class="select-column">Select</th>-->
-<!--                    <th class="username-column">Username</th>-->
-<!--                    <th>-->
-<!--                        <select class="role-option" v-model="roleFilter">-->
-<!--                            <option value="Role">Role</option>-->
-<!--                            <option value="ADMIN">ADMIN</option>-->
-<!--                            <option value="MEMBER" selected>MEMBER</option>-->
-<!--                        </select>-->
-<!--                    </th>-->
-<!--                </tr>-->
-<!--                </thead>-->
-<!--                <tbody>-->
-<!--                    <tr v-for="(row, index) in memberList" :key="index">-->
-<!--                        <td v-if="showSelectColumn">-->
-<!--                            <input type="checkbox" @change="toggleSelectMember(row.userId)" :checked="selectedUsers.includes(row.userId)" />-->
-<!--                        </td>-->
-<!--                        <td class="username-column"><p>{{row.userName}}</p></td>-->
-<!--                        <td class="role">-->
-<!--                            <p v-if="!isDisplayRoleSetting">{{ row.role }}</p>-->
-<!--                            &lt;!&ndash; Thay input bằng select &ndash;&gt;-->
-<!--                            <select v-if="row.role&&isDisplayRoleSetting" class="role-option" v-model="row.role" @change="updateRole(row)">-->
-<!--                                <option value="ADMIN">ADMIN</option>-->
-<!--                                <option value="MEMBER" selected>MEMBER</option>-->
-<!--                            </select>-->
-<!--                        </td>-->
-<!--                    </tr>-->
-<!--                </tbody>-->
-<!--            </table>-->
-<!--        </div>-->
-
-<!--        <div class="actions">-->
-<!--            <button @click="toggleSelectColumn" class="icon-button">-->
-<!--                <img src="../assets/select.svg" alt="" class="icon">-->
-<!--            </button>-->
-<!--            <button @click="removeRow" class="icon-button">-->
-<!--                <img src="../assets/delete-word.svg" alt="" class="icon">-->
-<!--            </button>-->
-<!--            <button @click="openAddMember" class="icon-button">-->
-<!--                <img src="../assets/add-word.svg" alt="" class="icon">-->
-<!--            </button>-->
-<!--            <button @click="handleSaveClassName" class="icon-button">-->
-<!--                <img src="../assets/save.svg" alt="" class="icon">-->
-<!--            </button>-->
-<!--        </div>-->
-<!--    </div>-->
-
-<!--    <AddMember :setName="setName" v-if="showAddMember" @close="closeAddMember"></AddMember>-->
-<!--</template>-->
-
-<!--<style scoped>-->
-<!--    .class-window {-->
-<!--        position: fixed;-->
-<!--        top: 100px;-->
-<!--        left: 50%;-->
-<!--        transform: translateX(-50%);-->
-<!--        background-color: white;-->
-<!--        border-radius: 8px;-->
-<!--        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);-->
-<!--        padding: 20px;-->
-<!--        width: 40%;-->
-<!--        z-index: 1000;-->
-<!--    }-->
-
-<!--    .class-header {-->
-<!--        display: flex;-->
-<!--        justify-content: space-between;-->
-<!--        align-items: center;-->
-<!--    }-->
-
-<!--    .search-icon {-->
-<!--        height: 20px;-->
-<!--        cursor: pointer;-->
-<!--    }-->
-
-<!--    .search-icon:hover {-->
-<!--        transform: scale(1.1);-->
-<!--    }-->
-
-<!--    .class-header img {-->
-<!--        margin-left: 10px;-->
-<!--    }-->
-
-<!--    .class-header .search-bar {-->
-<!--        margin-left: 10px;-->
-<!--        padding: 5px;-->
-<!--        border: 1px solid black;-->
-<!--        border-radius: 4px;-->
-<!--        text-align: center;-->
-<!--        width: 50%;-->
-<!--    }-->
-
-<!--    .class-name {-->
-<!--        display: flex;-->
-<!--        align-items: center;-->
-<!--        justify-content: center;-->
-<!--        flex-grow: 1;-->
-<!--    }-->
-
-<!--    .class-name input {-->
-<!--        margin-left: 10px;-->
-<!--        padding: 5px;-->
-<!--        border: 1px solid black;-->
-<!--        border-radius: 4px;-->
-<!--        text-align: center;-->
-<!--        width: 50%;-->
-<!--    }-->
-
-<!--    .table-container {-->
-<!--        max-height: 300px;-->
-<!--        overflow-y: auto;-->
-<!--        margin-top: 20px;-->
-<!--        flex-grow: 1;-->
-<!--        position: relative;-->
-<!--    }-->
-
-<!--    .class-table {-->
-<!--        min-height: 70px;-->
-<!--        width: 100%;-->
-<!--        margin-top: 10px;-->
-<!--        border-collapse: collapse; /* Bỏ khoảng cách giữa các cột */-->
-<!--    }-->
-
-<!--    .class-table thead th {-->
-<!--        background-color: #A8D5E5;-->
-<!--        border: 1px solid black;-->
-<!--        position: sticky;-->
-<!--        top: 0; /* Cố định hàng tiêu đề khi cuộn */-->
-<!--        z-index: 1; /* Đảm bảo hàng tiêu đề luôn nằm trên cùng */-->
-<!--    }-->
-
-<!--    .class-table th {-->
-<!--        padding: 5px;-->
-<!--        border: 1px solid #ccc;-->
-<!--        text-align: center;-->
-<!--    }-->
-
-<!--    .class-table th select {-->
-<!--        background-color: #A8D5E5;-->
-<!--        width: 80px;-->
-<!--        border: none;-->
-<!--    }-->
-
-<!--    .class-table th option {-->
-<!--        height: 25px;-->
-<!--        background-color: #ffffff;-->
-<!--    }-->
-
-<!--    .class-table td {-->
-<!--        padding: 5px;-->
-<!--        border: 1px solid #ccc;-->
-<!--        text-align: center;-->
-<!--    }-->
-
-<!--    .role-option {-->
-<!--        width: 80px;-->
-<!--        height: 25px;-->
-<!--        cursor: pointer;-->
-<!--    }-->
-
-<!--    .select-column {-->
-<!--        width: 50px; /* Chiều rộng cho cột Select */-->
-<!--    }-->
-
-<!--    .username-column {-->
-<!--        width: 300px;-->
-<!--    }-->
-
-<!--    .username-column p {-->
-<!--        text-align: left;-->
-<!--        margin-left: 10px;-->
-<!--    }-->
-
-<!--    .actions {-->
-<!--        display: flex;-->
-<!--        justify-content: space-around; /* Căn giữa các icon */-->
-<!--        margin: 5px;-->
-<!--        margin-top: 15px;-->
-<!--    }-->
-
-<!--    .icon-button {-->
-<!--        cursor: pointer;-->
-<!--        width: 80px;-->
-<!--        height: 40px;-->
-<!--        display: flex;-->
-<!--        align-items: center;-->
-<!--        justify-content: center;-->
-<!--        border: none;-->
-<!--        background: none;-->
-<!--        transition: background-color 0.3s;-->
-<!--    }-->
-
-<!--    .icon-button:hover {-->
-<!--        transform: scale(1.05);-->
-<!--    }-->
-
-<!--    .icon {-->
-<!--        width: 100%;-->
-<!--        height: auto;-->
-<!--        cursor: pointer;-->
-<!--    }-->
-
-<!--    .close-btn {-->
-<!--        background: none;-->
-<!--        border: none;-->
-<!--        font-size: 20px;-->
-<!--        cursor: pointer;-->
-<!--    }-->
-
-<!--    td.role p{-->
-<!--      font-weight: bolder;-->
-<!--    }-->
-
-
-<!--</style>-->
-
 <script setup>
 import { ref, defineEmits, defineProps, onMounted } from 'vue';
 import OverlayBackground from '../components/OverlayBackground.vue';
@@ -414,33 +5,48 @@ import AddMember from './AddMember.vue';
 import { createClass, updateClassName, getMemberList, deleteMember, updateMemberRole } from '@/apis/classApi';
 import { getCurrentUser } from '@/apis/userApi';
 
+// Định nghĩa các sự kiện emit gửi lên component cha
 const emit = defineEmits(['close', 'save', 'reload']);
+// Định nghĩa props nhận từ component cha
 const props = defineProps(['isEditMode']);
 
+// Trạng thái hiển thị modal (true: hiển thị, false: ẩn)
 const visible = ref(true);
+// Tên lớp học, lấy từ localStorage nếu ở chế độ chỉnh sửa
 const className = ref(props.isEditMode ? localStorage.getItem('className') || '' : '');
+// Danh sách thành viên của lớp
 const memberList = ref([]);
+// Danh sách ID người dùng được chọn để xóa
 const selectedUsers = ref([]);
+// Hiển thị cột chọn thành viên để xóa
 const showSelectColumn = ref(false);
+// Hiển thị modal thêm thành viên
 const showAddMember = ref(false);
+// ID của lớp học
 const classId = ref(null);
+// Token xác thực từ localStorage
 const token = localStorage.getItem('token');
+// Hiển thị cài đặt vai trò (admin/member)
 const isDisplayRoleSetting = ref(false);
+// Trạng thái đang tải dữ liệu
 const isLoading = ref(false);
+// Thông báo lỗi
 const errorMessage = ref('');
 
-// Pagination variables
-const membersPage = ref(0);
-const membersSize = ref(10);
-const membersTotalPages = ref(0);
-const membersTotalElements = ref(0);
+// --- Biến phân trang ---
+const membersPage = ref(0); // Trang hiện tại của danh sách thành viên
+const membersSize = ref(10); // Số thành viên mỗi trang
+const membersTotalPages = ref(0); // Tổng số trang
+const membersTotalElements = ref(0); // Tổng số thành viên
 
+// Hàm lưu hoặc cập nhật tên lớp học
 const saveClassName = async () => {
   if (!className.value.trim()) {
-    alert('Class name cannot be empty!');
+    alert('Tên lớp không được để trống!');
     return;
   }
 
+  // Tạo payload cho API
   const payload = {
     classId: props.isEditMode ? localStorage.getItem('classId') : null,
     name: className.value,
@@ -449,111 +55,123 @@ const saveClassName = async () => {
     isLoading.value = true;
     let response;
     if (props.isEditMode) {
+      // Cập nhật tên lớp nếu ở chế độ chỉnh sửa
       response = await updateClassName(payload, token);
-      alert('Class updated successfully.');
-      localStorage.setItem('className', className.value);
-      emit('reload');
-      await getMember();
-      isDisplayRoleSetting.value = true;
+      alert('Cập nhật lớp thành công.');
+      localStorage.setItem('className', className.value); // Cập nhật localStorage
+      emit('reload'); // Phát sự kiện reload
+      await getMember(); // Tải lại danh sách thành viên
+      isDisplayRoleSetting.value = true; // Hiển thị cài đặt vai trò
     } else {
+      // Tạo lớp mới nếu không ở chế độ chỉnh sửa
       response = await createClass(payload, token);
-      classId.value = response.classId;
-      localStorage.setItem('classId', classId.value);
+      classId.value = response.classId; // Lưu ID lớp
+      localStorage.setItem('classId', classId.value); // Lưu vào localStorage
       localStorage.setItem('className', className.value);
-      emit('save', response);
-      emit('reload');
-      await getMember();
-      isDisplayRoleSetting.value = true;
+      emit('save', response); // Phát sự kiện lưu
+      emit('reload'); // Phát sự kiện reload
+      await getMember(); // Tải danh sách thành viên
+      isDisplayRoleSetting.value = true; // Hiển thị cài đặt vai trò
     }
   } catch (error) {
-    console.error('Error saving class:', error);
-    alert('Failed to save class: ' + (error.message || 'Unknown error'));
+    console.error('Lỗi khi lưu lớp:', error);
+    alert('Lỗi khi lưu lớp: ' + (error.message || 'Lỗi không xác định'));
   } finally {
-    isLoading.value = false;
+    isLoading.value = false; // Kết thúc tải
   }
 };
 
+// Hàm xóa thành viên đã chọn
 const removeRow = async () => {
   if (selectedUsers.value.length === 0) {
-    alert('Please select at least one member to remove.');
+    alert('Vui lòng chọn ít nhất một thành viên để xóa.');
     return;
   }
 
   const classId = localStorage.getItem('classId');
   if (!classId) {
-    alert('Class ID is missing. Please try again.');
+    alert('Thiếu ID lớp. Vui lòng thử lại.');
     return;
   }
 
   try {
     isLoading.value = true;
+    // Xóa từng thành viên được chọn
     for (const userId of selectedUsers.value) {
       await deleteMember(userId, classId, token);
     }
-    alert('Members removed successfully.');
-    selectedUsers.value = [];
-    await getMember();
-    emit('reload');
+    alert('Xóa thành viên thành công.');
+    selectedUsers.value = []; // Xóa danh sách đã chọn
+    await getMember(); // Tải lại danh sách thành viên
+    emit('reload'); // Phát sự kiện reload
   } catch (error) {
-    console.error('Error removing members:', error);
-    alert('Failed to remove members: ' + (error || 'Unknown error'));
+    console.error('Lỗi khi xóa thành viên:', error);
+    alert('Lỗi khi xóa thành viên: ' + (error || 'Lỗi không xác định'));
   } finally {
-    isLoading.value = false;
+    isLoading.value = false; // Kết thúc tải
   }
 };
 
+// Hàm đóng modal
 const closeForm = () => {
-  emit('close');
-  visible.value = false;
+  emit('close'); // Phát sự kiện đóng
+  visible.value = false; // Ẩn modal
 };
 
+// Hàm chọn/bỏ chọn thành viên để xóa
 const toggleSelectMember = (userId) => {
   const index = selectedUsers.value.indexOf(userId);
   if (index === -1) {
-    selectedUsers.value.push(userId);
+    selectedUsers.value.push(userId); // Thêm ID vào danh sách
   } else {
-    selectedUsers.splice(index, 1);
+    selectedUsers.value.splice(index, 1); // Xóa ID khỏi danh sách
   }
 };
 
+// Hàm bật/tắt cột chọn thành viên
 const toggleSelectColumn = () => {
   showSelectColumn.value = !showSelectColumn.value;
 };
 
+// Hàm mở modal thêm thành viên
 const openAddMember = () => {
-  showAddMember.value = true;
-  visible.value = false;
+  showAddMember.value = true; // Hiển thị modal thêm thành viên
+  visible.value = false; // Ẩn modal chính
 };
 
+// Hàm đóng modal thêm thành viên
 const closeAddMember = () => {
-  getMember();
-  showAddMember.value = false;
-  visible.value = true;
+  getMember(); // Tải lại danh sách thành viên
+  showAddMember.value = false; // Ẩn modal thêm thành viên
+  visible.value = true; // Hiện lại modal chính
 };
 
+// Hàm cập nhật vai trò của thành viên
 const updateRole = async (user) => {
   const payload = {
     userId: user.userId,
     classId: classId.value,
-    role: user.role,
+    role: user.role, // Vai trò mới (ADMIN hoặc MEMBER)
   };
   try {
     isLoading.value = true;
-    await updateMemberRole(payload, token);
-    alert('Role updated successfully.');
+    await updateMemberRole(payload, token); // Gọi API cập nhật vai trò
+    alert('Cập nhật vai trò thành công.');
   } catch (error) {
-    console.error('Error updating role:', error);
+    console.error('Lỗi khi cập nhật vai trò:', error);
+    // Hoàn tác thay đổi vai trò nếu lỗi
     user.role = user.role === 'ADMIN' ? 'MEMBER' : 'ADMIN';
-    alert('Failed to update role: ' + (error || 'Unknown error'));
+    alert('Lỗi khi cập nhật vai trò: ' + (error || 'Lỗi không xác định'));
   } finally {
-    isLoading.value = false;
+    isLoading.value = false; // Kết thúc tải
   }
 };
 
+// Hàm lấy danh sách thành viên
 const getMember = async () => {
   if (!classId.value) {
-    console.warn('No classId provided');
-    errorMessage.value = 'Class ID is missing.';
+    console.warn('Không có classId');
+    errorMessage.value = 'Thiếu ID lớp.';
     memberList.value = [];
     return;
   }
@@ -561,61 +179,70 @@ const getMember = async () => {
   try {
     isLoading.value = true;
     errorMessage.value = '';
+    // Gọi API lấy danh sách thành viên
     const response = await getMemberList(classId.value, token, membersPage.value, membersSize.value);
-    console.log('API response:', response);
+    console.log('Phản hồi API:', response);
+    // Gán danh sách thành viên, đảm bảo là mảng
     memberList.value = Array.isArray(response.memberList) ? response.memberList : [];
-    membersTotalPages.value = Number(response.totalPages) || 0;
-    membersTotalElements.value = Number(response.totalElements) || 0;
-    console.log('Assigned memberList:', memberList.value);
+    membersTotalPages.value = Number(response.totalPages) || 0; // Tổng số trang
+    membersTotalElements.value = Number(response.totalElements) || 0; // Tổng số thành viên
+    console.log('Danh sách thành viên:', memberList.value);
   } catch (error) {
-    console.error('Error fetching members:', error);
-    errorMessage.value = 'Failed to load members: ' + (error.message || 'Unknown error');
+    console.error('Lỗi khi lấy danh sách thành viên:', error);
+    errorMessage.value = 'Lỗi khi tải danh sách thành viên: ' + (error.message || 'Lỗi không xác định');
     memberList.value = [];
   } finally {
-    isLoading.value = false;
+    isLoading.value = false; // Kết thúc tải
   }
 };
 
+// Hàm thay đổi trang danh sách thành viên
 const changeMembersPage = (newPage) => {
   if (newPage >= 0 && newPage < membersTotalPages.value && !isLoading.value) {
-    membersPage.value = newPage;
-    getMember();
+    membersPage.value = newPage; // Cập nhật trang
+    getMember(); // Tải lại danh sách thành viên
   }
 };
 
+// Hàm tạo mảng số trang để hiển thị
 const getPageNumbers = () => {
-  const maxPagesToShow = 5;
-  const totalPages = membersTotalPages.value;
-  const currentPage = membersPage.value;
+  const maxPagesToShow = 5; // Số trang tối đa hiển thị
+  const totalPages = membersTotalPages.value; // Tổng số trang
+  const currentPage = membersPage.value; // Trang hiện tại
   const pageNumbers = [];
 
+  // Tính toán trang bắt đầu và kết thúc
   const startPage = Math.max(0, currentPage - Math.floor(maxPagesToShow / 2));
   const endPage = Math.min(totalPages, startPage + maxPagesToShow);
 
   for (let i = startPage; i < endPage; i++) {
-    pageNumbers.push(i);
+    pageNumbers.push(i); // Thêm số trang vào mảng
   }
   return pageNumbers;
 };
 
+// Khi component được mount
 onMounted(async () => {
   if (props.isEditMode) {
+    // Nếu ở chế độ chỉnh sửa, lấy thông tin từ localStorage
     classId.value = localStorage.getItem('classId');
     className.value = localStorage.getItem('className') || '';
     if (!classId.value) {
-      console.warn('No classId found in localStorage');
-      errorMessage.value = 'Class ID not found. Please try again.';
+      console.warn('Không tìm thấy classId trong localStorage');
+      errorMessage.value = 'Không tìm thấy ID lớp. Vui lòng thử lại.';
       return;
     }
-    await getMember();
+    await getMember(); // Tải danh sách thành viên
     if (memberList.value.length > 0) {
       try {
+        // Lấy thông tin người dùng hiện tại
         const currentUser = await getCurrentUser(token);
+        // Kiểm tra xem người dùng có phải admin không
         isDisplayRoleSetting.value = memberList.value.some(
             member => member.role === 'ADMIN' && member.userName === currentUser.username
         );
       } catch (error) {
-        console.error('Error fetching current user:', error);
+        console.error('Lỗi khi lấy thông tin người dùng hiện tại:', error);
       }
     }
   }

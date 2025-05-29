@@ -1,112 +1,113 @@
 <script setup>
+// Import các thành phần và thư viện cần thiết
 import Header from '@/components/Header.vue';
 import { ref, onMounted, computed } from 'vue';
 import { getStudySessionByTime, getStudySessionByWord, getStudySessionBySpecificWord, getStudySessionBySpecificTime } from "@/apis/studyApi.js";
 
-// State for tabs and data
-const activeTab = ref('By Time');
-const data = ref([]);
-const singleItemMode = ref(false);
-const singleItemHeader = ref('');
-const token = localStorage.getItem('token');
+// Khởi tạo trạng thái cho tab và dữ liệu
+const activeTab = ref('By Time'); // Tab hiện tại
+const data = ref([]); // Dữ liệu hiển thị
+const singleItemMode = ref(false); // Chế độ xem chi tiết
+const singleItemHeader = ref(''); // Tiêu đề của chế độ xem chi tiết
+const token = localStorage.getItem('token'); // Lấy token từ localStorage
 
-// Pagination state
-const currentPage = ref(0);
-const pageSize = ref(20);
-const totalPages = ref(0);
-const totalElements = ref(0);
+// Trạng thái phân trang
+const currentPage = ref(0); // Trang hiện tại
+const pageSize = ref(20); // Số lượng phần tử trên mỗi trang
+const totalPages = ref(0); // Tổng số trang
+const totalElements = ref(0); // Tổng số phần tử
 
-// Statistics state
+// Trạng thái thống kê
 const todayStats = ref({
-  wordsStudied: 0,
-  totalReviews: 0,
-  averageDifficulty: 0
+  wordsStudied: 0, // Số từ đã học hôm nay
+  totalReviews: 0, // Tổng số lần ôn tập
+  averageDifficulty: 0 // Độ khó trung bình
 });
 
 const weeklyStats = ref({
-  totalWords: 0,
-  dailyAverage: 0,
-  streak: 0
+  totalWords: 0, // Tổng số từ trong tuần
+  dailyAverage: 0, // Trung bình từ/ngày
+  streak: 0 // Chuỗi ngày học liên tiếp
 });
 
-// Fetch study sessions by time
+// Hàm lấy dữ liệu học theo thời gian
 const fetchStatisticByTime = async (page = 0) => {
   try {
     const response = await getStudySessionByTime(token, page, pageSize.value);
-    console.log('API response (By Time):', response); // Debug log
-    data.value = response.content || [];
-    totalPages.value = response.totalPages || 0;
-    totalElements.value = response.totalElements || 0;
-    currentPage.value = page;
-    calculateTodayStats(response.content || []);
+    console.log('API response (By Time):', response); // Log để debug
+    data.value = response.content || []; // Gán dữ liệu vào biến
+    totalPages.value = response.totalPages || 0; // Cập nhật tổng số trang
+    totalElements.value = response.totalElements || 0; // Cập nhật tổng số phần tử
+    currentPage.value = page; // Cập nhật trang hiện tại
+    calculateTodayStats(response.content || []); // Tính toán thống kê hôm nay
   } catch (error) {
-    console.error("Error fetching statistics:", error);
-    console.warn("Unable to load study session data");
+    console.error("Error fetching statistics:", error); // Log lỗi
+    console.warn("Unable to load study session data"); // Cảnh báo
   }
 };
 
-// Fetch study sessions by word
+// Hàm lấy dữ liệu học theo từ
 const fetchStatisticByWord = async (page = 0) => {
   try {
     const response = await getStudySessionByWord(token, page, pageSize.value);
-    console.log('API response (By Word):', response); // Debug log
-    data.value = response.content || [];
-    totalPages.value = response.totalPages || 0;
-    totalElements.value = response.totalElements || 0;
-    currentPage.value = page;
-    calculateWordStats(response.content || []);
+    console.log('API response (By Word):', response); // Log để debug
+    data.value = response.content || []; // Gán dữ liệu vào biến
+    totalPages.value = response.totalPages || 0; // Cập nhật tổng số trang
+    totalElements.value = response.totalElements || 0; // Cập nhật tổng số phần tử
+    currentPage.value = page; // Cập nhật trang hiện tại
+    calculateWordStats(response.content || []); // Tính toán thống kê từ
   } catch (error) {
-    console.error("Error fetching statistics:", error);
-    console.warn("Unable to load word data");
+    console.error("Error fetching statistics:", error); // Log lỗi
+    console.warn("Unable to load word data"); // Cảnh báo
   }
 };
 
-// Fetch specific word statistics
+// Hàm lấy dữ liệu chi tiết theo từ cụ thể
 const fetchStatisticBySpecificWord = async (wordId, page = 0) => {
   try {
     const response = await getStudySessionBySpecificWord(token, wordId, page, pageSize.value);
-    data.value = response.content || [];
-    totalPages.value = response.totalPages || 0;
-    totalElements.value = response.totalElements || 0;
-    currentPage.value = page;
+    data.value = response.content || []; // Gán dữ liệu vào biến
+    totalPages.value = response.totalPages || 0; // Cập nhật tổng số trang
+    totalElements.value = response.totalElements || 0; // Cập nhật tổng số phần tử
+    currentPage.value = page; // Cập nhật trang hiện tại
   } catch (error) {
-    console.error("Error fetching statistics:", error);
-    console.warn("Unable to load detailed word data");
+    console.error("Error fetching statistics:", error); // Log lỗi
+    console.warn("Unable to load detailed word data"); // Cảnh báo
   }
 };
 
-// Fetch specific time statistics
+// Hàm lấy dữ liệu chi tiết theo thời gian cụ thể
 const fetchStatisticBySpecificTime = async (time, page = 0) => {
   try {
     const response = await getStudySessionBySpecificTime(token, time, page, pageSize.value);
     const cleanedResponse = response.content?.map(item => ({
       ...item,
-      time: item.time.split('.')[0]
+      time: item.time.split('.')[0] // Xử lý dữ liệu thời gian
     })) || [];
-    data.value = cleanedResponse;
-    totalPages.value = response.totalPages || 0;
-    totalElements.value = response.totalElements || 0;
-    currentPage.value = page;
+    data.value = cleanedResponse; // Gán dữ liệu vào biến
+    totalPages.value = response.totalPages || 0; // Cập nhật tổng số trang
+    totalElements.value = response.totalElements || 0; // Cập nhật tổng số phần tử
+    currentPage.value = page; // Cập nhật trang hiện tại
   } catch (error) {
-    console.error("Error fetching statistics:", error);
-    console.warn("Unable to load detailed session data");
+    console.error("Error fetching statistics:", error); // Log lỗi
+    console.warn("Unable to load detailed session data"); // Cảnh báo
   }
 };
 
-// Calculate statistics for today
+// Hàm tính toán thống kê hôm nay
 const calculateTodayStats = (timeData) => {
-  const today = new Date().toISOString().split('T')[0];
-  const todayData = timeData.find(item => item.date === today);
+  const today = new Date().toISOString().split('T')[0]; // Lấy ngày hôm nay
+  const todayData = timeData.find(item => item.date === today); // Tìm dữ liệu hôm nay
 
   if (todayData) {
-    todayStats.value.wordsStudied = todayData.numberOfWords || 0;
-    todayStats.value.totalReviews = todayData.numberOfWords || 0; // Assuming each word is one review
+    todayStats.value.wordsStudied = todayData.numberOfWords || 0; // Số từ đã học
+    todayStats.value.totalReviews = todayData.numberOfWords || 0; // Tổng số lần ôn tập
   } else {
-    todayStats.value.wordsStudied = 0;
-    todayStats.value.totalReviews = 0;
+    todayStats.value.wordsStudied = 0; // Không có dữ liệu
+    todayStats.value.totalReviews = 0; // Không có dữ liệu
   }
 
-  // Calculate weekly streak
+  // Tính toán chuỗi ngày học liên tiếp
   const sortedDates = timeData.sort((a, b) => new Date(b.date) - new Date(a.date));
   let streak = 0;
   let currentDate = new Date();
@@ -115,7 +116,7 @@ const calculateTodayStats = (timeData) => {
     const itemDate = new Date(item.date);
     const daysDiff = Math.floor((currentDate - itemDate) / (1000 * 60 * 60 * 24));
 
-    if (daysDiff === streak) {
+    if (daysDiff === 1) {
       streak++;
       currentDate = itemDate;
     } else {
@@ -123,33 +124,33 @@ const calculateTodayStats = (timeData) => {
     }
   }
 
-  weeklyStats.value.streak = streak;
-  weeklyStats.value.totalWords = timeData.reduce((sum, item) => sum + (item.numberOfWords || 0), 0);
-  weeklyStats.value.dailyAverage = Math.round(weeklyStats.value.totalWords / Math.max(timeData.length, 1));
+  weeklyStats.value.streak = streak; // Cập nhật chuỗi ngày học
+  weeklyStats.value.totalWords = timeData.reduce((sum, item) => sum + (item.numberOfWords || 0), 0); // Tổng số từ
+  weeklyStats.value.dailyAverage = Math.round(weeklyStats.value.totalWords / Math.max(timeData.length, 1)); // Trung bình từ/ngày
 };
 
-// Calculate word statistics
+// Hàm tính toán thống kê từ
 const calculateWordStats = (wordData) => {
   if (wordData.length > 0) {
-    const totalCount = wordData.reduce((sum, item) => sum + (item.count || 0), 0);
-    todayStats.value.averageDifficulty = Math.round((totalCount / wordData.length) * 10) / 10;
-    todayStats.value.totalReviews = totalCount;
+    const totalCount = wordData.reduce((sum, item) => sum + (item.count || 0), 0); // Tổng số lần ôn tập
+    todayStats.value.averageDifficulty = Math.round((totalCount / wordData.length) * 10) / 10; // Độ khó trung bình
+    todayStats.value.totalReviews = totalCount; // Tổng số lần ôn tập
   } else {
-    todayStats.value.averageDifficulty = 0;
-    todayStats.value.totalReviews = 0;
+    todayStats.value.averageDifficulty = 0; // Không có dữ liệu
+    todayStats.value.totalReviews = 0; // Không có dữ liệu
   }
 };
 
-// Computed properties for pagination and chart
+// Các thuộc tính tính toán cho phân trang và biểu đồ
 const paginationInfo = computed(() => {
-  if (totalElements.value === 0) return '0 of 0';
-  const start = currentPage.value * pageSize.value + 1;
-  const end = Math.min((currentPage.value + 1) * pageSize.value, totalElements.value);
-  return `${start}-${end} of ${totalElements.value}`;
+  if (totalElements.value === 0) return '0 of 0'; // Không có dữ liệu
+  const start = currentPage.value * pageSize.value + 1; // Phần tử bắt đầu
+  const end = Math.min((currentPage.value + 1) * pageSize.value, totalElements.value); // Phần tử kết thúc
+  return `${start}-${end} of ${totalElements.value}`; // Thông tin phân trang
 });
 
 const chartData = computed(() => {
-  if (!data.value || data.value.length === 0) return [];
+  if (!data.value || data.value.length === 0) return []; // Không có dữ liệu
 
   if (activeTab.value === 'By Time' && !singleItemMode.value) {
     return data.value.slice(0, 7).map((item, index) => ({
@@ -170,117 +171,117 @@ const chartData = computed(() => {
 });
 
 const maxValue = computed(() => {
-  if (chartData.value.length === 0) return 10;
-  const max = Math.max(...chartData.value.map(item => item.value));
-  return isNaN(max) || max <= 0 ? 10 : max + 5;
+  if (chartData.value.length === 0) return 10; // Giá trị tối đa mặc định
+  const max = Math.max(...chartData.value.map(item => item.value)); // Giá trị lớn nhất
+  return isNaN(max) || max <= 0 ? 10 : max + 5; // Giá trị tối đa cho biểu đồ
 });
 
-// Helper functions
+// Các hàm trợ giúp
 const formatDate = (dateString) => {
   const date = new Date(dateString);
-  return isNaN(date.getTime()) ? '' : `${date.getDate()}/${date.getMonth() + 1}`;
+  return isNaN(date.getTime()) ? '' : `${date.getDate()}/${date.getMonth() + 1}`; // Định dạng ngày
 };
 
 const getDifficultyLevel = (count) => {
-  if (count <= 2) return 'Low';
-  if (count <= 5) return 'Moderate';
-  if (count <= 8) return 'High';
-  return 'Proficient';
+  if (count <= 2) return 'Low'; // Độ khó thấp
+  if (count <= 5) return 'Moderate'; // Độ khó trung bình
+  if (count <= 8) return 'High'; // Độ khó cao
+  return 'Proficient'; // Thành thạo
 };
 
 const getDifficultyColor = (count) => {
-  if (count <= 2) return '#FF7675';
-  if (count <= 5) return '#FDCB6E';
-  if (count <= 8) return '#6C5CE7';
-  return '#00B894';
+  if (count <= 2) return '#FF7675'; // Màu độ khó thấp
+  if (count <= 5) return '#FDCB6E'; // Màu độ khó trung bình
+  if (count <= 8) return '#6C5CE7'; // Màu độ khó cao
+  return '#00B894'; // Màu thành thạo
 };
 
 const getNextReviewDate = (count) => {
-  const intervals = [1, 3, 7, 14, 30, 90]; // days
-  const intervalIndex = Math.min(count - 1, intervals.length - 1);
-  const days = intervals[intervalIndex] || 90;
+  const intervals = [1, 3, 7, 14, 30, 90]; // Các khoảng thời gian ôn tập (ngày)
+  const intervalIndex = Math.min(count - 1, intervals.length - 1); // Chỉ số khoảng thời gian
+  const days = intervals[intervalIndex] || 90; // Số ngày ôn tập tiếp theo
 
   const nextDate = new Date();
-  nextDate.setDate(nextDate.getDate() + days);
+  nextDate.setDate(nextDate.getDate() + days); // Tính ngày ôn tập tiếp theo
 
-  return nextDate.toLocaleDateString('en-GB');
+  return nextDate.toLocaleDateString('en-GB'); // Định dạng ngày
 };
 
-// Pagination methods
+// Các phương thức phân trang
 const goToNextPage = () => {
   if (currentPage.value < totalPages.value - 1) {
-    loadPage(currentPage.value + 1);
+    loadPage(currentPage.value + 1); // Chuyển sang trang tiếp theo
   }
 };
 
 const goToPreviousPage = () => {
   if (currentPage.value > 0) {
-    loadPage(currentPage.value - 1);
+    loadPage(currentPage.value - 1); // Quay lại trang trước
   }
 };
 
 const loadPage = (page) => {
   if (singleItemMode.value) {
     if (activeTab.value === 'By Time') {
-      fetchStatisticBySpecificTime(singleItemHeader.value, page);
+      fetchStatisticBySpecificTime(singleItemHeader.value, page); // Tải dữ liệu chi tiết theo thời gian
     } else {
       const wordId = data.value.length > 0 ? data.value[0].wordId : null;
       if (wordId) {
-        fetchStatisticBySpecificWord(wordId, page);
+        fetchStatisticBySpecificWord(wordId, page); // Tải dữ liệu chi tiết theo từ
       }
     }
   } else {
     if (activeTab.value === 'By Time') {
-      fetchStatisticByTime(page);
+      fetchStatisticByTime(page); // Tải dữ liệu theo thời gian
     } else {
-      fetchStatisticByWord(page);
+      fetchStatisticByWord(page); // Tải dữ liệu theo từ
     }
   }
 };
 
-// Initial data load
+// Tải dữ liệu ban đầu khi component được mount
 onMounted(() => {
-  console.log('Component mounted, fetching initial data'); // Debug log
+  console.log('Component mounted, fetching initial data'); // Log để debug
   if (!token) {
-    window.location.href = '/login';
-    console.warn('Please log in to use this feature');
+    window.location.href = '/login'; // Chuyển hướng nếu không có token
+    console.warn('Please log in to use this feature'); // Cảnh báo
     return;
   }
-  fetchStatisticByTime();
+  fetchStatisticByTime(); // Tải dữ liệu ban đầu
 });
 
-// Tab switching
+// Chuyển đổi tab
 const switchTab = () => {
-  singleItemMode.value = false;
+  singleItemMode.value = false; // Thoát chế độ xem chi tiết
   if (activeTab.value === "By Word") {
-    activeTab.value = "By Time";
-    fetchStatisticByTime();
+    activeTab.value = "By Time"; // Chuyển sang tab "By Time"
+    fetchStatisticByTime(); // Tải dữ liệu theo thời gian
   } else {
-    activeTab.value = "By Word";
-    fetchStatisticByWord();
+    activeTab.value = "By Word"; // Chuyển sang tab "By Word"
+    fetchStatisticByWord(); // Tải dữ liệu theo từ
   }
 };
 
-// Handle item selection for detailed view
+// Xử lý khi chọn một phần tử để xem chi tiết
 const handleSelectAnItem = (item) => {
-  singleItemMode.value = true;
+  singleItemMode.value = true; // Bật chế độ xem chi tiết
   if (activeTab.value === 'By Time') {
-    singleItemHeader.value = item.date;
-    fetchStatisticBySpecificTime(item.date);
+    singleItemHeader.value = item.date; // Cập nhật tiêu đề
+    fetchStatisticBySpecificTime(item.date); // Tải dữ liệu chi tiết theo thời gian
   } else {
-    singleItemHeader.value = item.word;
-    fetchStatisticBySpecificWord(item.wordId);
+    singleItemHeader.value = item.word; // Cập nhật tiêu đề
+    fetchStatisticBySpecificWord(item.wordId); // Tải dữ liệu chi tiết theo từ
   }
 };
 
-// Exit detailed view
+// Thoát chế độ xem chi tiết
 const gettingOutOfSingleItemMode = () => {
-  console.log('Exiting single item mode, activeTab:', activeTab.value); // Debug log
-  singleItemMode.value = false;
+  console.log('Exiting single item mode, activeTab:', activeTab.value); // Log để debug
+  singleItemMode.value = false; // Tắt chế độ xem chi tiết
   if (activeTab.value === 'By Time') {
-    fetchStatisticByTime();
+    fetchStatisticByTime(); // Tải dữ liệu theo thời gian
   } else {
-    fetchStatisticByWord();
+    fetchStatisticByWord(); // Tải dữ liệu theo từ
   }
 };
 </script>

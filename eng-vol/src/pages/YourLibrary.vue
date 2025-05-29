@@ -1,86 +1,89 @@
 <script setup>
-import Header from '@/components/Header.vue';
-import LibraryBody from "@/components/LibraryBody.vue";
-import { getLibrarySet } from "@/apis/setApi.js";
-import { getCurrentUserClasses } from "@/apis/classApi.js";
-import { onMounted, ref } from "vue";
+import Header from '@/components/Header.vue'; // Import component Header
+import LibraryBody from "@/components/LibraryBody.vue"; // Import component LibraryBody
+import { getLibrarySet } from "@/apis/setApi.js"; // Import API để lấy dữ liệu thư viện
+import { getCurrentUserClasses } from "@/apis/classApi.js"; // Import API để lấy danh sách lớp học của người dùng
+import { onMounted, ref } from "vue"; // Import các hàm và biến reactive từ Vue
 
-const token = localStorage.getItem('token');
+const token = localStorage.getItem('token'); // Lấy token từ localStorage để xác thực
 
-// Sets pagination
-const sets = ref(null);
-const setsPage = ref(0);
-const setsSize = ref(12);
-const setsTotalPages = ref(0);
-const setsTotalElements = ref(0);
+// Các biến reactive để quản lý phân trang cho sets
+const sets = ref(null); // Lưu danh sách sets
+const setsPage = ref(0); // Trang hiện tại của sets
+const setsSize = ref(12); // Số lượng sets trên mỗi trang
+const setsTotalPages = ref(0); // Tổng số trang của sets
+const setsTotalElements = ref(0); // Tổng số phần tử của sets
 
-// Classes pagination
-const classes = ref(null);
-const classesPage = ref(0);
-const classesSize = ref(10);
-const classesTotalPages = ref(0);
-const classesTotalElements = ref(0);
+// Các biến reactive để quản lý phân trang cho classes
+const classes = ref(null); // Lưu danh sách classes
+const classesPage = ref(0); // Trang hiện tại của classes
+const classesSize = ref(10); // Số lượng classes trên mỗi trang
+const classesTotalPages = ref(0); // Tổng số trang của classes
+const classesTotalElements = ref(0); // Tổng số phần tử của classes
 
-// Load data cho sets
+// Hàm lấy dữ liệu cho sets từ API
 const fetchSets = async () => {
   try {
-    const setsData = await getLibrarySet(token, setsPage.value, setsSize.value);
-    sets.value = setsData.content;
-    setsTotalPages.value = setsData.totalPages;
-    setsTotalElements.value = setsData.totalElements;
+    const setsData = await getLibrarySet(token, setsPage.value, setsSize.value); // Gọi API để lấy dữ liệu sets
+    sets.value = setsData.content; // Lưu danh sách sets vào biến reactive
+    setsTotalPages.value = setsData.totalPages; // Cập nhật tổng số trang
+    setsTotalElements.value = setsData.totalElements; // Cập nhật tổng số phần tử
   } catch (error) {
-    console.error("Error fetching sets:", error);
+    console.error("Error fetching sets:", error); // Log lỗi nếu có
   }
 };
 
-// Load data cho classes
+// Hàm lấy dữ liệu cho classes từ API
 const fetchClasses = async () => {
   try {
-    const classesData = await getCurrentUserClasses(token, classesPage.value, classesSize.value);
-    classes.value = classesData.content;
-    classesTotalPages.value = classesData.totalPages;
-    classesTotalElements.value = classesData.totalElements;
+    const classesData = await getCurrentUserClasses(token, classesPage.value, classesSize.value); // Gọi API để lấy dữ liệu classes
+    classes.value = classesData.content; // Lưu danh sách classes vào biến reactive
+    classesTotalPages.value = classesData.totalPages; // Cập nhật tổng số trang
+    classesTotalElements.value = classesData.totalElements; // Cập nhật tổng số phần tử
   } catch (error) {
-    console.error("Error fetching classes:", error);
+    console.error("Error fetching classes:", error); // Log lỗi nếu có
   }
 };
 
-// Xử lý phân trang sets
+// Hàm xử lý khi thay đổi trang của sets
 const changeSetsPage = (newPage) => {
-  setsPage.value = newPage;
-  fetchSets();
+  setsPage.value = newPage; // Cập nhật trang hiện tại
+  fetchSets(); // Gọi lại hàm fetchSets để lấy dữ liệu mới
 };
 
-// Xử lý phân trang classes
+// Hàm xử lý khi thay đổi trang của classes
 const changeClassesPage = (newPage) => {
-  classesPage.value = newPage;
-  fetchClasses();
+  classesPage.value = newPage; // Cập nhật trang hiện tại
+  fetchClasses(); // Gọi lại hàm fetchClasses để lấy dữ liệu mới
 };
 
+// Hàm xử lý reload dữ liệu
 const handleReload = async () => {
-  console.log("Reload triggered in YourLibrary");
-  await new Promise(resolve => setTimeout(resolve, 300));
-  await fetchSets();
-  await fetchClasses();
-
+  console.log("Reload triggered in YourLibrary"); // Log thông báo reload
+  await new Promise(resolve => setTimeout(resolve, 300)); // Tạm dừng 300ms
+  await fetchSets(); // Reload dữ liệu sets
+  await fetchClasses(); // Reload dữ liệu classes
 };
 
+// Hàm được gọi khi component được mount
 onMounted(() => {
-  if (token == null) {
-    alert('Login to use this feature');
-    window.location.href = '/login';
+  if (token == null) { // Kiểm tra nếu không có token
+    alert('Login to use this feature'); // Hiển thị thông báo yêu cầu đăng nhập
+    window.location.href = '/login'; // Chuyển hướng đến trang đăng nhập
     return;
   }
-  fetchSets();
-  fetchClasses();
+  fetchSets(); // Lấy dữ liệu sets
+  fetchClasses(); // Lấy dữ liệu classes
 });
 </script>
 
 <template>
   <div id="app">
+    <!-- Hiển thị Header -->
     <Header @reload="handleReload" />
     <main>
       <h2>Your library</h2>
+      <!-- Hiển thị LibraryBody với các props và sự kiện -->
       <LibraryBody
           :sets="sets"
           :classes="classes"
@@ -100,10 +103,10 @@ onMounted(() => {
 
 <style scoped>
 main {
-  padding: 100px;
+  padding: 100px; /* Khoảng cách padding cho main */
 }
 h2 {
-  font-weight: bold;
-  margin-bottom: 30px;
+  font-weight: bold; /* Định dạng chữ đậm */
+  margin-bottom: 30px; /* Khoảng cách dưới */
 }
 </style>

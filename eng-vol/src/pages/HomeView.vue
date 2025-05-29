@@ -7,178 +7,182 @@ import { getCurrentUser } from "@/apis/userApi";
 import { getRecentSet, getAllPublicSet, getLibrarySet } from "@/apis/setApi";
 
 const router = useRouter();
-const sets = ref([]);
-const recentSetsData = ref({
-  content: [],
-  totalPages: 0,
-  totalElements: 0,
-  number: 0,
-});
-const publicSetsData = ref({
-  content: [],
-  totalPages: 0,
-  totalElements: 0,
-  number: 0,
-});
-const librarySetsPage = ref(0);
-const recentSetsPage = ref(0);
-const publicSetsPage = ref(0);
-const recentSetsSize = ref(6);
-const publicSetsSize = ref(6);
-const librarySetsSize = ref(6);
-const isLoadingRecent = ref(false);
-const isLoadingPublic = ref(false);
-const isGuestMode = ref(false);
 
-// Kiểm tra token và đặt chế độ khách nếu cần
+// Các reactive variables để lưu trữ dữ liệu và trạng thái
+const sets = ref([]); // Lưu danh sách bộ thẻ hiện tại
+const recentSetsData = ref({ content: [], totalPages: 0, totalElements: 0, number: 0 }); // Dữ liệu bộ thẻ gần đây
+const publicSetsData = ref({ content: [], totalPages: 0, totalElements: 0, number: 0 }); // Dữ liệu bộ thẻ công khai
+const librarySetsPage = ref(0); // Trang hiện tại của bộ thẻ trong thư viện
+const recentSetsPage = ref(0); // Trang hiện tại của bộ thẻ gần đây
+const publicSetsPage = ref(0); // Trang hiện tại của bộ thẻ công khai
+const recentSetsSize = ref(6); // Số lượng bộ thẻ gần đây mỗi trang
+const publicSetsSize = ref(6); // Số lượng bộ thẻ công khai mỗi trang
+const librarySetsSize = ref(6); // Số lượng bộ thẻ trong thư viện mỗi trang
+const isLoadingRecent = ref(false); // Trạng thái tải bộ thẻ gần đây
+const isLoadingPublic = ref(false); // Trạng thái tải bộ thẻ công khai
+const isGuestMode = ref(false); // Kiểm tra xem người dùng có đang ở chế độ khách hay không
+
+// Kiểm tra token và thiết lập chế độ khách nếu không có token
 const checkAuthStatus = () => {
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("token"); // Lấy token từ localStorage
   if (!token) {
-    isGuestMode.value = true;
+    isGuestMode.value = true; // Bật chế độ khách nếu không có token
     console.log("Guest mode activated: No token found");
   }
-  return token;
+  return token; // Trả về token (nếu có)
 };
 
+// Lấy thông tin người dùng
 const fetchUserInfo = async (token) => {
   try {
-    const user = await getCurrentUser(token);
-    localStorage.setItem("user", JSON.stringify(user));
-    isGuestMode.value = false;
+    const user = await getCurrentUser(token); // Lấy thông tin người dùng từ API
+    localStorage.setItem("user", JSON.stringify(user)); // Lưu thông tin người dùng vào localStorage
+    isGuestMode.value = false; // Tắt chế độ khách
   } catch (error) {
     console.error("Error fetching user info:", error);
-    isGuestMode.value = true;
+    isGuestMode.value = true; // Bật chế độ khách nếu có lỗi
     console.log("Guest mode activated: User API error");
   }
 };
 
+// Lấy bộ thẻ gần đây từ API
 const fetchRecentSet = async (token, page) => {
-  if (isGuestMode.value) return;
+  if (isGuestMode.value) return; // Nếu chế độ khách, không cần tải bộ thẻ gần đây
 
   try {
-    isLoadingRecent.value = true;
-    const response = await getRecentSet(token, page, recentSetsSize.value);
-    recentSetsData.value = response;
-    recentSetsPage.value = page;
+    isLoadingRecent.value = true; // Đặt trạng thái đang tải
+    const response = await getRecentSet(token, page, recentSetsSize.value); // Gọi API để lấy bộ thẻ gần đây
+    recentSetsData.value = response; // Lưu dữ liệu bộ thẻ gần đây
+    recentSetsPage.value = page; // Cập nhật trang hiện tại
   } catch (error) {
     console.error("Error fetching recent sets:", error);
     if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-      isGuestMode.value = true;
+      isGuestMode.value = true; // Nếu bị lỗi 401/403, bật chế độ khách
       console.log("Guest mode activated: Recent sets API unauthorized");
     }
   } finally {
-    isLoadingRecent.value = false;
+    isLoadingRecent.value = false; // Đặt trạng thái không còn tải
   }
 };
 
+// Lấy bộ thẻ công khai từ API
 const fetchPublicSet = async (token, page) => {
   try {
-    isLoadingPublic.value = true;
-    const response = await getAllPublicSet(page, publicSetsSize.value);
-    publicSetsData.value = response;
-    publicSetsPage.value = page;
+    isLoadingPublic.value = true; // Đặt trạng thái đang tải
+    const response = await getAllPublicSet(page, publicSetsSize.value); // Gọi API để lấy bộ thẻ công khai
+    publicSetsData.value = response; // Lưu dữ liệu bộ thẻ công khai
+    publicSetsPage.value = page; // Cập nhật trang hiện tại
   } catch (error) {
     console.error("Error fetching public sets:", error);
-    alert("Failed to load public sets. Please try again.");
+    alert("Failed to load public sets. Please try again."); // Thông báo lỗi nếu tải thất bại
   } finally {
-    isLoadingPublic.value = false;
+    isLoadingPublic.value = false; // Đặt trạng thái không còn tải
   }
 };
 
+// Lấy bộ thẻ trong thư viện của người dùng
 const fetchLibrarySet = async (token) => {
-  if (isGuestMode.value) return;
+  if (isGuestMode.value) return; // Nếu chế độ khách, không cần tải bộ thẻ thư viện
 
   try {
-    const response = await getLibrarySet(token, librarySetsPage.value, librarySetsSize.value);
-    sets.value = response.content;
+    const response = await getLibrarySet(token, librarySetsPage.value, librarySetsSize.value); // Gọi API để lấy bộ thẻ thư viện
+    sets.value = response.content; // Lưu bộ thẻ vào sets
   } catch (error) {
     console.error("Error fetching library sets:", error);
     if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-      isGuestMode.value = true;
+      isGuestMode.value = true; // Nếu bị lỗi 401/403, bật chế độ khách
       console.log("Guest mode activated: Library API unauthorized");
     }
   }
 };
 
+// Lấy tất cả dữ liệu (gồm bộ thẻ gần đây, công khai và thư viện)
 const fetchAllData = async () => {
-  const token = checkAuthStatus();
+  const token = checkAuthStatus(); // Kiểm tra trạng thái token
   if (!token) {
-    await fetchPublicSet(null, publicSetsPage.value);
+    await fetchPublicSet(null, publicSetsPage.value); // Nếu không có token, chỉ lấy bộ thẻ công khai
     return;
   }
 
   try {
-    await Promise.all([
+    await Promise.all([ // Lấy thông tin người dùng và bộ thẻ công khai đồng thời
       fetchUserInfo(token),
       fetchPublicSet(token, publicSetsPage.value)
     ]);
 
     if (!isGuestMode.value) {
-      await Promise.all([
+      await Promise.all([ // Nếu không ở chế độ khách, lấy thêm bộ thẻ thư viện và bộ thẻ gần đây
         fetchLibrarySet(token),
         fetchRecentSet(token, recentSetsPage.value)
       ]);
     }
   } catch (error) {
     console.error("Error in fetchAllData:", error);
-    isGuestMode.value = true;
+    isGuestMode.value = true; // Nếu có lỗi, bật chế độ khách
     console.log("Guest mode activated: General error in data fetching");
-    await fetchPublicSet(null, publicSetsPage.value);
+    await fetchPublicSet(null, publicSetsPage.value); // Nếu có lỗi, chỉ lấy bộ thẻ công khai
   }
 };
 
+// Thông điệp chế độ khách
 const guestMessage = computed(() => {
   return isGuestMode.value ? "You are browsing as a guest. Sign in to access all features." : "";
 });
 
+// Chạy khi component được mount
 onMounted(() => {
-  fetchAllData();
+  fetchAllData(); // Gọi hàm lấy dữ liệu khi component được khởi tạo
 });
 
+// Điều hướng tới trang học
 const goToStudy = () => {
   if (isGuestMode.value) {
-    router.push("/login");
+    router.push("/login"); // Nếu chế độ khách, điều hướng đến trang đăng nhập
     return;
   }
-  router.push("/review");
+  router.push("/review"); // Điều hướng đến trang review nếu không phải chế độ khách
 };
 
+// Điều hướng tới thư viện
 const goToLibrary = () => {
   if (isGuestMode.value) {
-    router.push("/login");
+    router.push("/login"); // Nếu chế độ khách, điều hướng đến trang đăng nhập
     return;
   }
-  localStorage.setItem("libraryTab", "FlashSetBox sets");
-  router.push("/library");
+  localStorage.setItem("libraryTab", "FlashSetBox sets"); // Lưu trạng thái thư viện
+  router.push("/library"); // Điều hướng đến thư viện
 };
 
+// Thay đổi trang bộ thẻ (gần đây hoặc công khai)
 const changePage = async (type, page) => {
   if (page < 0 || page >= (type === "recent" ? recentSetsData.value.totalPages : publicSetsData.value.totalPages)) return;
 
   const token = localStorage.getItem("token");
   if (type === "recent" && !isGuestMode.value) {
-    await fetchRecentSet(token, page);
+    await fetchRecentSet(token, page); // Tải bộ thẻ gần đây
   } else if (type === "public") {
-    await fetchPublicSet(token, page);
+    await fetchPublicSet(token, page); // Tải bộ thẻ công khai
   }
 };
 
+// Lấy danh sách các số trang để hiển thị trong pagination
 const getPageNumbers = (totalPages, currentPage) => {
-  const maxPagesToShow = 5;
+  const maxPagesToShow = 5; // Số trang tối đa hiển thị
   const pages = [];
-  let startPage = Math.max(0, currentPage - Math.floor(maxPagesToShow / 2));
-  let endPage = Math.min(totalPages - 1, startPage + maxPagesToShow - 1);
+  let startPage = Math.max(0, currentPage - Math.floor(maxPagesToShow / 2)); // Xác định trang bắt đầu
+  let endPage = Math.min(totalPages - 1, startPage + maxPagesToShow - 1); // Xác định trang kết thúc
 
   if (endPage - startPage + 1 < maxPagesToShow) {
-    startPage = Math.max(0, endPage - maxPagesToShow + 1);
+    startPage = Math.max(0, endPage - maxPagesToShow + 1); // Điều chỉnh nếu số trang hiển thị quá ít
   }
 
   for (let i = startPage; i <= endPage; i++) {
-    pages.push(i);
+    pages.push(i); // Thêm các số trang vào danh sách
   }
   return pages;
 };
 </script>
+
 
 <template>
   <Header

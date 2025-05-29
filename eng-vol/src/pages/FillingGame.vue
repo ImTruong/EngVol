@@ -1,20 +1,27 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from "vue";
-import {useStore} from 'vuex';
-import Header from '../components/Header.vue';
-import { useRouter } from 'vue-router';
+import { ref, computed, onMounted, onUnmounted } from "vue"; // Import các hàm và biến reactive từ Vue
+import { useStore } from 'vuex'; // Import Vuex để quản lý trạng thái
+import Header from '../components/Header.vue'; // Import component Header
+import { useRouter } from 'vue-router'; // Import router để điều hướng giữa các trang
 
-const store = useStore();
-const router = useRouter();
+const store = useStore(); // Khởi tạo store để truy cập trạng thái toàn cục
+const router = useRouter(); // Khởi tạo router để điều hướng
+
+// Lấy bộ từ hiện tại từ trạng thái Vuex
 const currentSet = computed(() => store.state.setModule.currentSet);
-const totalCards = computed(() => currentSet.value ? currentSet.value.wordResponses.length : 0);
-const currentCard = ref(0)
-const userInput = ref("");
-const feedback = ref("");
-const answer = ref(false)
-const isCorrect = ref(null);
-const isAnimating = ref(false);
 
+// Tính tổng số thẻ từ trong bộ từ hiện tại
+const totalCards = computed(() => currentSet.value ? currentSet.value.wordResponses.length : 0);
+
+// Biến reactive để lưu trạng thái thẻ từ hiện tại
+const currentCard = ref(0); // Chỉ số thẻ từ hiện tại
+const userInput = ref(""); // Lưu nội dung người dùng nhập
+const feedback = ref(""); // Lưu phản hồi sau khi kiểm tra câu trả lời
+const answer = ref(false); // Trạng thái hiển thị đáp án
+const isCorrect = ref(null); // Trạng thái đúng/sai của câu trả lời
+const isAnimating = ref(false); // Trạng thái hiệu ứng khi trả lời
+
+// Hiển thị từ với các ký tự đã nhập hoặc dấu gạch dưới
 const displayWord = computed(() => {
   if (!currentSet.value || !currentSet.value.wordResponses[currentCard.value]) return "";
   const currentWord = currentSet.value.wordResponses[currentCard.value];
@@ -37,83 +44,91 @@ const displayWord = computed(() => {
       .join("");
 });
 
+// Xử lý sự kiện nhấn phím
 const handleKeydown = (event) => {
   const targetWord = currentSet.value.wordResponses[currentCard.value].word;
 
   if (/^[a-zA-Z ]$/.test(event.key) && userInput.value.length < targetWord.length) {
-    userInput.value += event.key;
+    userInput.value += event.key; // Thêm ký tự vào input
   } else if (event.key === "Backspace") {
-    userInput.value = userInput.value.slice(0, -1);
+    userInput.value = userInput.value.slice(0, -1); // Xóa ký tự cuối cùng
   } else if (event.key === "Enter") {
-    checkAnswer();
+    checkAnswer(); // Kiểm tra câu trả lời khi nhấn Enter
   }
 };
 
+// Kiểm tra câu trả lời của người dùng
 const checkAnswer = () => {
   const targetWord = currentSet.value.wordResponses[currentCard.value].word;
   if (userInput.value.toLowerCase() === targetWord.toLowerCase()) {
-    feedback.value = "Correct! 🎉";
-    isCorrect.value = true;
-    isAnimating.value = true;
-    setTimeout(() => isAnimating.value = false, 600);
+    feedback.value = "Correct! 🎉"; // Phản hồi đúng
+    isCorrect.value = true; // Đánh dấu câu trả lời đúng
+    isAnimating.value = true; // Bật hiệu ứng
+    setTimeout(() => isAnimating.value = false, 600); // Tắt hiệu ứng sau 600ms
   } else {
-    feedback.value = "Incorrect! Try again 🤔";
-    isCorrect.value = false;
-    isAnimating.value = true;
-    setTimeout(() => isAnimating.value = false, 600);
+    feedback.value = "Incorrect! Try again 🤔"; // Phản hồi sai
+    isCorrect.value = false; // Đánh dấu câu trả lời sai
+    isAnimating.value = true; // Bật hiệu ứng
+    setTimeout(() => isAnimating.value = false, 600); // Tắt hiệu ứng sau 600ms
   }
 };
 
+// Chuyển về thẻ từ trước đó
 const prevCard = () => {
   if (currentCard.value > 0) {
-    resetCardState();
-    currentCard.value -= 1;
+    resetCardState(); // Đặt lại trạng thái thẻ từ
+    currentCard.value -= 1; // Giảm chỉ số thẻ từ
   }
 };
 
+// Chuyển sang thẻ từ tiếp theo
 const nextCard = () => {
-  // Chỉ cho phép next khi đã trả lời đúng
   if (isCorrect.value !== true) {
-    return;
+    return; // Chỉ cho phép chuyển khi trả lời đúng
   }
 
   if (currentCard.value < totalCards.value - 1) {
-    resetCardState();
-    currentCard.value += 1;
+    resetCardState(); // Đặt lại trạng thái thẻ từ
+    currentCard.value += 1; // Tăng chỉ số thẻ từ
   } else {
-    feedback.value = "Well done! All cards completed! 🌟";
+    feedback.value = "Well done! All cards completed! 🌟"; // Phản hồi hoàn thành tất cả thẻ từ
     setTimeout(() => {
-      alert("Well done! 🌟");
-      router.push('/');
+      alert("Well done! 🌟"); // Hiển thị thông báo
+      router.push('/'); // Điều hướng về trang chính
     }, 1000);
   }
 };
 
+// Đặt lại trạng thái thẻ từ
 const resetCardState = () => {
-  userInput.value = "";
-  feedback.value = "";
-  isCorrect.value = null;
-  answer.value = false;
+  userInput.value = ""; // Xóa nội dung nhập
+  feedback.value = ""; // Xóa phản hồi
+  isCorrect.value = null; // Đặt lại trạng thái đúng/sai
+  answer.value = false; // Ẩn đáp án
 };
 
+// Phát âm thanh của từ hiện tại
 const playAudio = () => {
   const audio = new Audio(currentSet.value.wordResponses[currentCard.value].audio);
-  audio.play().catch(e => console.log('Audio play failed:', e));
+  audio.play().catch(e => console.log('Audio play failed:', e)); // Xử lý lỗi nếu không phát được âm thanh
 };
 
+// Hiển thị hoặc ẩn đáp án
 const showAnswer = () => {
-  answer.value = !answer.value;
-}
+  answer.value = !answer.value; // Đảo trạng thái hiển thị đáp án
+};
 
+// Xử lý khi component được mount
 onMounted(() => {
   if (currentSet.value?.wordResponses) {
-    currentSet.value.wordResponses = currentSet.value.wordResponses.sort(() => Math.random() - 0.5);
+    currentSet.value.wordResponses = currentSet.value.wordResponses.sort(() => Math.random() - 0.5); // Xáo trộn danh sách thẻ từ
   }
-  window.addEventListener("keydown", handleKeydown);
+  window.addEventListener("keydown", handleKeydown); // Lắng nghe sự kiện nhấn phím
 });
 
+// Xử lý khi component bị unmount
 onUnmounted(() => {
-  window.removeEventListener("keydown", handleKeydown);
+  window.removeEventListener("keydown", handleKeydown); // Gỡ bỏ sự kiện nhấn phím
 });
 </script>
 

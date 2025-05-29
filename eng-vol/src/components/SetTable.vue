@@ -1,78 +1,133 @@
 <script setup>
 import { ref, watch, defineEmits, defineProps, computed, onMounted } from 'vue';
+// Import các component con sẽ sử dụng trong component này
 import OverlayBackground from '../components/OverlayBackground.vue';
 import ModifyCardModal from '../components/ModifyCardModal.vue';
 import ImageCard from './ImageCard.vue';
+// Import các hàm API gọi backend
 import { saveSetInfo } from '@/apis/setApi';
 import { deleteWord } from '@/apis/wordApi';
 import { getCurrentUserClasses } from '@/apis/classApi';
 
+// Khai báo event emit để phát sự kiện ra component cha
 const emit = defineEmits(['close', 'reload']);
+
+// Khai báo props nhận vào từ component cha
 const props = defineProps(['isEditMode', 'existingSet', 'classId', 'className', 'inClass']);
+
+// State quản lý hiển thị form
 const visible = ref(true);
+
+// Tên bộ từ vựng, nếu là chỉnh sửa sẽ lấy tên của existingSet
 const setName = ref(props.isEditMode ? props.existingSet.name : '');
+
+// Danh sách các từ (wordResponses) trong bộ từ, hoặc khởi tạo mới với 1 row trống
 const rows = ref(props.isEditMode ? props.existingSet.wordResponses : [{ id: '', word: '', ipa: '', audio: '', definition: '', example: '', image: '' }]);
+
+// Danh sách các từ được chọn (đánh dấu checkbox)
 const selectedWords = ref([]);
+
+// Biến để hiện cột checkbox chọn từ
 const showSelectColumn = ref(false);
+
+// Biến để hiện/ẩn menu chọn quyền riêng tư
 const showOptions = ref(false);
+
+// Lựa chọn quyền riêng tư (Class, Private,...)
 const selectedOption = ref(props.isEditMode ? props.existingSet.privacyStatus : (props.inClass ? 'CLASS' : 'PRIVATE'));
+
+// Ref cho dropdown menu (dùng khi cần thao tác trực tiếp DOM)
 const dropdownRef = ref(null);
+
+// Biến trạng thái đang chỉnh sửa 1 từ
 const isEditWord = ref(false);
+
+// Biến để hiện modal sửa thẻ từ
 const showModifyCardModal = ref(false);
+
+// Lưu classId (nếu bộ từ thuộc class)
 const classId = ref((props.isEditMode && props.existingSet.privacyStatus === 'CLASS') || props.inClass ? props.classId : '');
+
+// Quản lý trạng thái hiển thị ô tìm kiếm
 const isSearchVisible = ref(false);
+
+// Từ khóa tìm kiếm
 const searchTerm = ref('');
+
+// Từ đang chỉnh sửa (khi mở modal sửa)
 const editWord = ref(null);
+
+// Danh sách các lớp của người dùng
 const myClasses = ref([]);
+
+// Lớp được chọn hiện tại (nếu thuộc quyền riêng tư class)
 const selectedClass = ref(props.isEditMode && props.existingSet.privacyStatus === 'CLASS' ?
     { classId: props.classId, className: props.className } :
     (props.inClass ? { classId: props.classId, className: props.className } : null)
 );
+
+// Lấy thông tin user từ localStorage
 const user = JSON.parse(localStorage.getItem('user'));
+
+// Biến hiển thị modal xem ảnh
 const showImg = ref(false);
+
+// URL ảnh đang xem
 const image = ref("");
+
+// Token xác thực lấy từ localStorage
 const token = localStorage.getItem('token');
+
+// Biến phân trang (page, size) khi lấy dữ liệu
 const page = ref(0);
 const size = ref(12);
 
-// Thêm các state cho class selection modal
+// Các biến phục vụ cho modal chọn class
 const showClassModal = ref(false);
-const previousSelectedOption = ref(selectedOption.value);
-const previousSelectedClass = ref(selectedClass.value);
+const previousSelectedOption = ref(selectedOption.value); // lưu trạng thái option trước khi mở modal chọn class
+const previousSelectedClass = ref(selectedClass.value);   // lưu trạng thái class trước khi mở modal chọn class
 
-// Thêm các state cho tìm kiếm và phân trang class
+// Biến tìm kiếm và phân trang class trong modal
 const classSearchTerm = ref('');
 const classPage = ref(0);
 const classSize = ref(10);
 const classLoading = ref(false);
 const classHasMore = ref(true);
+
+// Ref DOM container scroll của modal class (dùng để xử lý infinite scroll)
 const classModalScrollContainer = ref(null);
 
-// Thêm biến isSetCreated để theo dõi xem set đã được tạo hay chưa
+// Biến kiểm tra bộ từ đã được tạo (để phân biệt tạo mới hay chỉnh sửa)
 const isSetCreated = ref(props.isEditMode);
-// Biến lưu ID của set khi tạo mới
+
+// Lưu id của bộ từ hiện tại (có thể mới tạo hoặc đã có)
 const currentSetId = ref(props.isEditMode && props.existingSet ? props.existingSet.id : null);
 
+// Khi component mounted, gọi API lấy danh sách lớp của user lần đầu
 onMounted(async() => {
   myClasses.value = await getCurrentUserClasses(token, page.value, size.value);
 });
 
-// Hàm load classes cho modal
+// Hàm tải danh sách lớp cho modal, có thể reset lại danh sách
 const loadClasses = async (reset = false) => {
-  if (classLoading.value) return;
+  if (classLoading.value) return; // nếu đang load thì không gọi lại
 
   classLoading.value = true;
   try {
     const currentPage = reset ? 0 : classPage.value;
+    // Gọi API lấy lớp, có tìm kiếm và phân trang
     const response = await getCurrentUserClasses(token, currentPage, classSize.value, classSearchTerm.value);
 
     if (reset) {
+      // Nếu reset thì gán lại toàn bộ dữ liệu lớp
       myClasses.value = response.content || [];
       classPage.value = 0;
     } else {
+      // Nếu không reset thì nối thêm dữ liệu mới vào danh sách hiện tại
       myClasses.value = [...myClasses.value, ...(response.content || [])];
     }
 
+    // Kiểm tra xem còn trang tiếp theo không
     classHasMore.value = !response.last;
     if (classHasMore.value) {
       classPage.value++;
@@ -84,25 +139,26 @@ const loadClasses = async (reset = false) => {
   }
 };
 
-// Hàm xử lý tìm kiếm class
+// Hàm xử lý tìm kiếm lớp: reset phân trang và gọi load lại
 const searchClasses = async () => {
   classPage.value = 0;
   classHasMore.value = true;
   await loadClasses(true);
 };
 
-// Hàm xử lý infinite scroll
+// Hàm xử lý scroll trong modal class để load thêm dữ liệu (infinite scroll)
 const handleClassScroll = async () => {
   if (!classModalScrollContainer.value) return;
 
   const { scrollTop, scrollHeight, clientHeight } = classModalScrollContainer.value;
-  const threshold = 50; // Load more when 50px from bottom
+  const threshold = 50; // ngưỡng cách đáy 50px để load thêm
 
   if (scrollTop + clientHeight >= scrollHeight - threshold && classHasMore.value && !classLoading.value) {
     await loadClasses();
   }
 };
 
+// Hàm lưu thông tin bộ từ (tạo mới hoặc cập nhật)
 const saveSetInfoInfo = async () => {
   showOptions.value = false;
   const payload = {
@@ -113,13 +169,14 @@ const saveSetInfoInfo = async () => {
     classId: classId.value || null
   };
   try {
+    // Gọi API lưu bộ từ
     const response = await saveSetInfo(payload, token, isSetCreated.value);
     console.log(response)
-    emit("reload");
+    emit("reload"); // phát sự kiện yêu cầu load lại dữ liệu cha
     alert(response.message);
     setName.value = response.data.name;
     currentSetId.value = response.data.id;
-    // Cập nhật trạng thái sau khi lưu thành công
+    // Cập nhật trạng thái bộ từ đã được tạo thành công
     isSetCreated.value = true;
   } catch (error) {
     alert(error);
@@ -127,17 +184,21 @@ const saveSetInfoInfo = async () => {
   }
 };
 
+// Hàm thêm từ mới vào danh sách rows
 const addNewWord = (newWord) => {
   rows.value.push(newWord);
-  emit("reload");
+  emit("reload"); // yêu cầu reload dữ liệu
 };
 
+// Hàm xóa các từ được chọn
 const removeRow = async () => {
   if (selectedWords.value.length > 0) {
     for (const wordId of selectedWords.value) {
       try {
         const token = localStorage.getItem('token');
+        // Gọi API xóa từ
         const response = await deleteWord(wordId, token);
+        // Lọc lại danh sách từ sau khi xóa
         rows.value = rows.value.filter(row => row.id !== wordId);
         alert(response.message);
       } catch (error) {
@@ -151,11 +212,13 @@ const removeRow = async () => {
   emit("reload");
 };
 
+// Hàm đóng form, phát sự kiện cho component cha
 const closeForm = () => {
   emit('close');
   visible.value = false;
 };
 
+// Chọn hoặc bỏ chọn 1 từ trong danh sách
 const toggleSelectWord = (row) => {
   const index = selectedWords.value.indexOf(row.id);
   if (index === -1) {
@@ -165,25 +228,29 @@ const toggleSelectWord = (row) => {
   }
 };
 
+// Bật/tắt hiển thị cột checkbox chọn từ
 const toggleSelectColumn = () => {
   showOptions.value = false;
   showSelectColumn.value = !showSelectColumn.value;
 };
 
+// Bật/tắt hiển thị menu chọn quyền riêng tư
 const toggleOptions = () => {
   showOptions.value = !showOptions.value;
 };
 
+// Xử lý khi chọn quyền riêng tư trong menu
 const selectOption = (option) => {
   if (option === 'CLASS') {
-    // Lưu trạng thái hiện tại trước khi mở modal
+    // Lưu trạng thái hiện tại trước khi mở modal chọn lớp
     previousSelectedOption.value = selectedOption.value;
     previousSelectedClass.value = selectedClass.value;
     showClassModal.value = true;
     showOptions.value = false;
-    // Load classes khi mở modal
+    // Tải danh sách lớp khi mở modal
     loadClasses(true);
   } else {
+    // Nếu chọn quyền riêng tư khác CLASS thì reset class đã chọn
     selectedOption.value = option;
     selectedClass.value = null;
     classId.value = '';
@@ -191,7 +258,7 @@ const selectOption = (option) => {
   }
 };
 
-// Xử lý khi chọn class từ modal
+// Xử lý khi chọn 1 class trong modal
 const selectClassFromModal = (classItem) => {
   selectedOption.value = 'CLASS';
   selectedClass.value = classItem;
@@ -199,9 +266,9 @@ const selectClassFromModal = (classItem) => {
   showClassModal.value = false;
 };
 
-// Xử lý khi đóng modal mà không chọn class
+// Xử lý đóng modal chọn class mà không chọn class nào
 const closeClassModal = () => {
-  // Khôi phục trạng thái trước đó
+  // Khôi phục lại lựa chọn trước đó
   selectedOption.value = previousSelectedOption.value;
   selectedClass.value = previousSelectedClass.value;
   if (previousSelectedClass.value) {
@@ -210,12 +277,14 @@ const closeClassModal = () => {
     classId.value = '';
   }
   showClassModal.value = false;
-  // Reset search và pagination
+
+  // Reset tìm kiếm và phân trang
   classSearchTerm.value = '';
   classPage.value = 0;
   classHasMore.value = true;
 };
 
+// Mở modal sửa từ mới, kiểm tra đã lưu set chưa
 const openModifyCardModal = () => {
   showOptions.value = false;
   if (!isSetCreated.value && !setName.value) {
@@ -226,12 +295,14 @@ const openModifyCardModal = () => {
   visible.value = false;
 };
 
+// Đóng modal sửa từ
 const closeModifyCardModal = () => {
   isEditWord.value = false;
   visible.value = true;
   showModifyCardModal.value = false;
 };
 
+// Hàm kiểm tra và gọi lưu set
 const handleSaveSetInfoInfo = () => {
   if (setName.value.trim()) {
     if (selectedOption.value === 'CLASS' && !classId.value) {
@@ -244,24 +315,29 @@ const handleSaveSetInfoInfo = () => {
   }
 };
 
+// Bật/tắt ô tìm kiếm
 const toggleSearch = () => {
   showOptions.value = false;
   isSearchVisible.value = !isSearchVisible.value;
 };
 
+// Hàm mở chỉnh sửa từ, set state để modal chỉnh sửa biết
 const EditRow = (row) => {
   isEditWord.value = true;
   editWord.value = row;
   openModifyCardModal();
 };
 
+// Computed lọc danh sách từ dựa vào từ khóa tìm kiếm
 const filteredRows = computed(() => {
   if (!isSearchVisible.value || !searchTerm.value.trim()) {
     return rows.value;
   }
+  // Lọc các từ có chứa từ khóa tìm kiếm, không phân biệt hoa thường
   return rows.value.filter(row => row.word.toLowerCase().includes(searchTerm.value.toLowerCase().trim()));
 });
 
+// Hàm cập nhật lại 1 từ khi sửa xong
 const updateWord = (updatedWord) => {
   const index = rows.value.findIndex(row => row.id === updatedWord.id);
   if (index !== -1) {
@@ -273,6 +349,7 @@ const updateWord = (updatedWord) => {
   emit("reload");
 };
 
+// Watch props.existingSet để khi có dữ liệu mới từ component cha thì cập nhật lại các biến local
 watch(() => props.existingSet, (newExistingSet) => {
   if (newExistingSet && newExistingSet.words) {
     setName.value = newExistingSet.name;
@@ -280,13 +357,11 @@ watch(() => props.existingSet, (newExistingSet) => {
     selectedOption.value = newExistingSet.privacyStatus || '';
     classId.value = newExistingSet.privacyStatus === 'CLASS' ? props.classId : '';
 
-    // Cập nhật biến kiểm tra set đã được tạo
-    if (newExistingSet.id) {
-      isSetCreated.value = true;
-      currentSetId.value = newExistingSet.id;
-    }
+    // Cập nhật trạng thái bộ từ đã được tạo
+    isSetCreated.value = true;
+    currentSetId.value = newExistingSet.id;
   }
-}, { deep: true });
+}, { immediate: true });
 
 const openImage = (img) => {
   showImg.value = true;

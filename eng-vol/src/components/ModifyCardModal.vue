@@ -1,188 +1,212 @@
 <script setup>
-  import { ref, defineEmits, defineProps, watch, onMounted } from 'vue';
-  import { fetchWordAutomationData, createWord, updateWord } from '@/apis/wordApi.js';
-  import OverlayBackground from '../components/OverlayBackground.vue';
-  import ImageCard from './ImageCard.vue';
+import { ref, defineEmits, defineProps, watch, onMounted } from 'vue';
+import { fetchWordAutomationData, createWord, updateWord } from '@/apis/wordApi.js';
+import OverlayBackground from '../components/OverlayBackground.vue';
+import ImageCard from './ImageCard.vue';
 
-  const emit = defineEmits(['close', 'save', 'update']);
-  const visible = ref(true);
-  const definitions = ref([]);
-  const isDropdownOpen= ref(false);
-  const showImg = ref(false);
-  const token = localStorage.getItem('token');
-  const props = defineProps({
-    setName: {
-      type: String,
-      default: ''
-    },
-    setId: {
-      type: Number,
-      default: null
-    }, 
-    word:{
-      type: Object,
-      default: null
-    }
-  });
+// Khởi tạo emit để gửi sự kiện 'close', 'save', 'update' đến component cha
+const emit = defineEmits(['close', 'save', 'update']);
+// Trạng thái hiển thị form (true: hiển thị form, false: ẩn)
+const visible = ref(true);
+// Mảng lưu các định nghĩa của từ, lấy từ API
+const definitions = ref([]);
+// Trạng thái hiển thị dropdown chọn định nghĩa
+const isDropdownOpen = ref(false);
+// Trạng thái hiển thị modal hình ảnh
+const showImg = ref(false);
+// Lấy token từ localStorage để xác thực API
+const token = localStorage.getItem('token');
 
-  const newWord = ref({
-    id: '',
-    word: '',
-    ipa: '',
-    audio: '',
-    definition: '',
-    example: '',
-    image: ''
-  });
-
-  const audioCache = ref({});
-  let data = ref(null);
-
-  const closeForm = () => {
-    emit('close');
-    visible.value = false;
-  };
-  
-  const handleImageUpload = (event) => {
-    if (event.target.files && event.target.files[0]) {
-      newWord.value.image = event.target.files[0];
-    } else {
-      alert('No file selected');
-    }
-  };
-
-  const setWordAutoData = async (word) => {
-    word = newWord.value.word.trim();
-    if (!word) return;
-    data = await fetchWordAutomationData(word);
-    if (data && data[0]?.phonetics) {
-      const phonetic = data[0].phonetics.find(p => p.audio);
-      newWord.value.ipa = phonetic?.text || '';
-      newWord.value.audio = phonetic?.audio || '';
-
-      const audioElement = document.getElementById('audio');
-      if (phonetic?.audio) {
-        audioElement.src = phonetic.audio;
-        audioElement.style.display = "block";
-        audioElement.play();
-      } else {
-        audioElement.style.display = "none";
-      }
-    }
-    definitions.value = data[0]?.meanings?.flatMap(meaning =>
-      meaning.definitions?.map(def => def.definition) || []
-    )
-  };
-
-  onMounted (() => {
-    if (props.word) {
-      setWordAutoData(props.word);
-    }
-  });
-
-  const saveData = async () => {
-    // Validate required fields
-    if (!props.setId) {
-      alert("Set ID is required");
-      return;
-    }
-
-    if (!newWord.value.word || newWord.value.word.trim() === '') {
-      alert("Word is required");
-      return;
-    }
-
-    if (!newWord.value.definition || newWord.value.definition.trim() === '') {
-      alert("Definition is required");
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append('setId', props.setId);
-    if (newWord.value.id) formData.append('id', newWord.value.id);
-    formData.append('word', newWord.value.word.trim());
-    formData.append('ipa', newWord.value.ipa || '');
-    formData.append('definition', newWord.value.definition.trim());
-    formData.append('example', newWord.value.example || '');
-
-    // Xử lý audio - chỉ gửi string URL, không gửi file
-    if (newWord.value.audio) {
-      if (typeof newWord.value.audio === 'string') {
-        // Gửi trực tiếp string URL
-        formData.append('audio', newWord.value.audio);
-      } else if (newWord.value.audio instanceof File) {
-        // Nếu có file audio, cần upload lên server trước để lấy URL
-        // Hoặc tạm thời skip
-        console.warn('Audio file detected but backend expects string URL');
-      }
-    }
-
-    // Xử lý image - đảm bảo chỉ append File object
-    if (newWord.value.image instanceof File) {
-      formData.append('image', newWord.value.image);
-    }
-
-    // Debug: Log FormData contents
-    console.log('FormData contents:');
-    for (let [key, value] of formData.entries()) {
-      console.log(key, ':', value);
-    }
-
-    try {
-      let response;
-      if (props.word) {
-        response = await updateWord(formData, token);
-        emit('update', newWord.value);
-      } else {
-        response = await createWord(formData, token);
-        emit('save', response.data);
-      }
-      alert(response.message);
-      closeForm();
-    } catch (error) {
-      console.error('Full error:', error);
-      console.error('Error response:', error.response?.data);
-      alert(error.response?.data?.message || error.message || "An error occurred");
-    }
-  };
-
-
-  const toggleDropdown = () =>{
-      isDropdownOpen.value = !isDropdownOpen.value;
-  };
-
-  const selectDefinition = (definition) =>{
-      newWord.value.definition = definition;
-      isDropdownOpen.value = false;
+// Định nghĩa props nhận từ component cha
+const props = defineProps({
+  setName: {
+    type: String,
+    default: '' // Tên của bộ từ vựng
+  },
+  setId: {
+    type: Number,
+    default: null // ID của bộ từ vựng
+  },
+  word: {
+    type: Object,
+    default: null // Thông tin từ cần chỉnh sửa (nếu có)
   }
+});
 
-  const openImage = (img) => {
-    if (img instanceof File) {
-      const imageUrl = URL.createObjectURL(img);
-      newWord.value.image = imageUrl;
-    } else {
-      newWord.value.image = img;
-    }
-    showImg.value = true;
-    visible.value = false;
-  };
+// Đối tượng lưu thông tin từ mới hoặc từ đang chỉnh sửa
+const newWord = ref({
+  id: '',
+  word: '',
+  ipa: '',
+  audio: '',
+  definition: '',
+  example: '',
+  image: ''
+});
 
-  const closeImage = () =>{
-    showImg.value = false;
-    visible.value = true;
+// Bộ nhớ cache cho audio (chưa sử dụng trong code hiện tại)
+const audioCache = ref({});
+// Lưu dữ liệu từ API tự động lấy thông tin từ
+let data = ref(null);
+
+// Hàm đóng form
+const closeForm = () => {
+  emit('close'); // Phát sự kiện đóng form
+  visible.value = false; // Ẩn form
+};
+
+// Hàm xử lý khi upload hình ảnh
+const handleImageUpload = (event) => {
+  if (event.target.files && event.target.files[0]) {
+    newWord.value.image = event.target.files[0]; // Lưu file hình ảnh vào newWord
+  } else {
+    alert('Không có file được chọn');
   }
-  watch(() => props.word, (newValue) => {
-  if (newValue) {
-    newWord.value = { ...newValue };
-    newWord.value.image = null;
-  }
-  }, { immediate: true });
+};
 
-  const handlePlayAudio = () => {
+// Hàm lấy dữ liệu tự động (IPA, audio, định nghĩa) từ API dựa trên từ
+const setWordAutoData = async (word) => {
+  word = newWord.value.word.trim();
+  if (!word) return; // Nếu không có từ, thoát
+  data = await fetchWordAutomationData(word); // Gọi API lấy dữ liệu
+  if (data && data[0]?.phonetics) {
+    const phonetic = data[0].phonetics.find(p => p.audio); // Tìm phonetic có audio
+    newWord.value.ipa = phonetic?.text || ''; // Lưu IPA
+    newWord.value.audio = phonetic?.audio || ''; // Lưu URL audio
+
     const audioElement = document.getElementById('audio');
-    audioElement.play();
-  };
+    if (phonetic?.audio) {
+      audioElement.src = phonetic.audio; // Gán nguồn audio
+      audioElement.style.display = "block"; // Hiện audio player
+      audioElement.play(); // Phát audio
+    } else {
+      audioElement.style.display = "none"; // Ẩn audio player nếu không có
+    }
+  }
+  // Lấy danh sách định nghĩa từ API
+  definitions.value = data[0]?.meanings?.flatMap(meaning =>
+      meaning.definitions?.map(def => def.definition) || []
+  );
+};
 
+// Khi component được mount, nếu có từ chỉnh sửa thì lấy dữ liệu tự động
+onMounted(() => {
+  if (props.word) {
+    setWordAutoData(props.word);
+  }
+});
+
+// Hàm lưu hoặc cập nhật từ
+const saveData = async () => {
+  // Kiểm tra dữ liệu bắt buộc
+  if (!props.setId) {
+    alert("Yêu cầu ID bộ từ vựng");
+    return;
+  }
+
+  if (!newWord.value.word || newWord.value.word.trim() === '') {
+    alert("Yêu cầu nhập từ");
+    return;
+  }
+
+  if (!newWord.value.definition || newWord.value.definition.trim() === '') {
+    alert("Yêu cầu nhập định nghĩa");
+    return;
+  }
+
+  // Tạo FormData để gửi dữ liệu
+  const formData = new FormData();
+  formData.append('setId', props.setId);
+  if (newWord.value.id) formData.append('id', newWord.value.id); // Gửi ID nếu cập nhật
+  formData.append('word', newWord.value.word.trim());
+  formData.append('ipa', newWord.value.ipa || '');
+  formData.append('definition', newWord.value.definition.trim());
+  formData.append('example', newWord.value.example || '');
+
+  // Xử lý audio (chỉ gửi URL string, không gửi file)
+  if (newWord.value.audio) {
+    if (typeof newWord.value.audio === 'string') {
+      formData.append('audio', newWord.value.audio); // Gửi URL audio
+    } else if (newWord.value.audio instanceof File) {
+      console.warn('Phát hiện file audio nhưng backend yêu cầu URL string');
+    }
+  }
+
+  // Xử lý hình ảnh (chỉ gửi file)
+  if (newWord.value.image instanceof File) {
+    formData.append('image', newWord.value.image);
+  }
+
+  // Debug: In nội dung FormData
+  console.log('Nội dung FormData:');
+  for (let [key, value] of formData.entries()) {
+    console.log(key, ':', value);
+  }
+
+  try {
+    let response;
+    if (props.word) {
+      // Cập nhật từ nếu props.word tồn tại
+      response = await updateWord(formData, token);
+      emit('update', newWord.value); // Phát sự kiện cập nhật
+    } else {
+      // Tạo từ mới nếu không có props.word
+      response = await createWord(formData, token);
+      emit('save', response.data); // Phát sự kiện lưu
+    }
+    alert(response.message); // Hiển thị thông báo thành công
+    closeForm(); // Đóng form
+  } catch (error) {
+    // Xử lý lỗi
+    console.error('Lỗi đầy đủ:', error);
+    console.error('Phản hồi lỗi:', error.response?.data);
+    alert(error.response?.data?.message || error.message || "Đã xảy ra lỗi");
+  }
+};
+
+// Hàm bật/tắt dropdown chọn định nghĩa
+const toggleDropdown = () => {
+  isDropdownOpen.value = !isDropdownOpen.value;
+};
+
+// Hàm chọn một định nghĩa từ dropdown
+const selectDefinition = (definition) => {
+  newWord.value.definition = definition; // Gán định nghĩa được chọn
+  isDropdownOpen.value = false; // Đóng dropdown
+};
+
+// Hàm mở modal hình ảnh
+const openImage = (img) => {
+  if (img instanceof File) {
+    // Nếu là file, tạo URL tạm thời để hiển thị
+    const imageUrl = URL.createObjectURL(img);
+    newWord.value.image = imageUrl;
+  } else {
+    newWord.value.image = img; // Nếu là URL, sử dụng trực tiếp
+  }
+  showImg.value = true; // Hiển thị modal hình ảnh
+  visible.value = false; // Ẩn form
+};
+
+// Hàm đóng modal hình ảnh
+const closeImage = () => {
+  showImg.value = false; // Ẩn modal hình ảnh
+  visible.value = true; // Hiện lại form
+};
+
+// Theo dõi thay đổi props.word để cập nhật newWord
+watch(() => props.word, (newValue) => {
+  if (newValue) {
+    newWord.value = { ...newValue }; // Sao chép dữ liệu từ props.word
+    newWord.value.image = null; // Đặt lại hình ảnh
+  }
+}, { immediate: true }); // Chạy ngay khi khởi tạo
+
+// Hàm phát audio
+const handlePlayAudio = () => {
+  const audioElement = document.getElementById('audio');
+  audioElement.play(); // Phát audio
+};
 </script>
 
 <template>

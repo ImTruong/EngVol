@@ -1,128 +1,132 @@
 <script setup>
-import ClassModal from '@/components/ClassModal.vue'
-import SetBox from "@/components/SetBox.vue"
-import ClassTable from '@/components/ClassTable.vue';
-import UserManagement from '@/components/UserManagement.vue';
-import { getAllClasses }  from "@/apis/classApi.js";
-import { getAllSets }  from "@/apis/setApi.js";
-import { ref } from "vue";
-import { onMounted, onUnmounted } from "vue";
+import ClassModal from '@/components/ClassModal.vue'; // Import component ClassModal để hiển thị modal thông tin lớp học
+import SetBox from "@/components/SetBox.vue"; // Import component SetBox để hiển thị thông tin bộ flashcard
+import ClassTable from '@/components/ClassTable.vue'; // Import component ClassTable để hiển thị bảng thông tin lớp học
+import UserManagement from '@/components/UserManagement.vue'; // Import component UserManagement để quản lý người dùng
+import { getAllClasses } from "@/apis/classApi.js"; // Import API để lấy danh sách lớp học
+import { getAllSets } from "@/apis/setApi.js"; // Import API để lấy danh sách bộ flashcard
+import { ref } from "vue"; // Import hàm ref từ Vue để tạo biến reactive
+import { onMounted, onUnmounted } from "vue"; // Import các lifecycle hooks từ Vue
 
-const classModalMode = ref(false);
-const classTableMode = ref(false);
-const activeTab = ref("Flashcard sets");
-const classes = ref(null);
-const sets = ref(null);
-const search = ref("");
+// Biến reactive để quản lý trạng thái modal và tab
+const classModalMode = ref(false); // Trạng thái hiển thị modal lớp học
+const classTableMode = ref(false); // Trạng thái hiển thị bảng lớp học
+const activeTab = ref("Flashcard sets"); // Tab hiện tại
+const classes = ref(null); // Danh sách lớp học
+const sets = ref(null); // Danh sách bộ flashcard
+const search = ref(""); // Giá trị tìm kiếm
 
-// Sets pagination
-const setsPage = ref(0);
-const setsSize = ref(10);
-const setsTotalPages = ref(0);
-const setsTotalElements = ref(0);
+// Phân trang cho bộ flashcard
+const setsPage = ref(0); // Trang hiện tại của bộ flashcard
+const setsSize = ref(10); // Số lượng bộ flashcard trên mỗi trang
+const setsTotalPages = ref(0); // Tổng số trang của bộ flashcard
+const setsTotalElements = ref(0); // Tổng số bộ flashcard
 
-// Classes pagination
-const classesPage = ref(0);
-const classesSize = ref(10);
-const classesTotalPages = ref(0);
-const classesTotalElements = ref(0);
+// Phân trang cho lớp học
+const classesPage = ref(0); // Trang hiện tại của lớp học
+const classesSize = ref(10); // Số lượng lớp học trên mỗi trang
+const classesTotalPages = ref(0); // Tổng số trang của lớp học
+const classesTotalElements = ref(0); // Tổng số lớp học
 
-let intervalId = null;
+let intervalId = null; // ID của interval để làm mới dữ liệu
 
-// Updated fetchData to handle pagination
+// Hàm lấy dữ liệu từ API
 const fetchData = async (token) => {
   try {
-    // Fetch sets with pagination
+    // Lấy dữ liệu bộ flashcard với phân trang
     if (activeTab.value === "Flashcard sets" || activeTab.value === "Classes") {
       const setsData = await getAllSets(token, search.value, setsPage.value, setsSize.value);
-      sets.value = setsData.content;
-      setsTotalPages.value = setsData.totalPages;
-      setsTotalElements.value = setsData.totalElements;
+      sets.value = setsData.content; // Lưu danh sách bộ flashcard
+      setsTotalPages.value = setsData.totalPages; // Cập nhật tổng số trang
+      setsTotalElements.value = setsData.totalElements; // Cập nhật tổng số phần tử
     }
 
-    // Fetch classes with pagination
+    // Lấy dữ liệu lớp học với phân trang
     if (activeTab.value === "Flashcard sets" || activeTab.value === "Classes") {
       const classesData = await getAllClasses(token, search.value, classesPage.value, classesSize.value);
-      classes.value = classesData.content;
-      classesTotalPages.value = classesData.totalPages;
-      classesTotalElements.value = classesData.totalElements;
+      classes.value = classesData.content; // Lưu danh sách lớp học
+      classesTotalPages.value = classesData.totalPages; // Cập nhật tổng số trang
+      classesTotalElements.value = classesData.totalElements; // Cập nhật tổng số phần tử
     }
   } catch (error) {
-    console.error("Error fetching data:", error);
+    console.error("Error fetching data:", error); // Log lỗi nếu có
   }
 };
 
-// Pagination handlers
+// Hàm xử lý thay đổi trang của bộ flashcard
 const changeSetsPage = (newPage) => {
-  setsPage.value = newPage;
-  const token = localStorage.getItem("token");
-  fetchData(token);
+  setsPage.value = newPage; // Cập nhật trang hiện tại
+  const token = localStorage.getItem("token"); // Lấy token từ localStorage
+  fetchData(token); // Gọi hàm fetchData để lấy dữ liệu mới
 };
 
+// Hàm xử lý thay đổi trang của lớp học
 const changeClassesPage = (newPage) => {
-  classesPage.value = newPage;
-  const token = localStorage.getItem("token");
-  fetchData(token);
+  classesPage.value = newPage; // Cập nhật trang hiện tại
+  const token = localStorage.getItem("token"); // Lấy token từ localStorage
+  fetchData(token); // Gọi hàm fetchData để lấy dữ liệu mới
 };
 
+// Lifecycle hook khi component được mount
 onMounted(() => {
-  const token = localStorage.getItem("token");
-  fetchData(token); // fetch ban đầu
+  const token = localStorage.getItem("token"); // Lấy token từ localStorage
+  fetchData(token); // Lấy dữ liệu ban đầu
 
   intervalId = setInterval(() => {
-    fetchData(token); // truyền đúng token vào
+    fetchData(token); // Làm mới dữ liệu mỗi 3 giây
   }, 3000);
 });
 
+// Lifecycle hook khi component bị unmount
 onUnmounted(() => {
-  clearInterval(intervalId); // dọn dẹp interval
+  clearInterval(intervalId); // Dọn dẹp interval
 });
 
+// Hàm hiển thị modal lớp học
 const showClassModal = (classItem) => {
-  classModalMode.value = true;
-  localStorage.setItem('classId', classItem.classId);
-  localStorage.setItem('className', classItem.className);
-}
+  classModalMode.value = true; // Bật modal
+  localStorage.setItem('classId', classItem.classId); // Lưu ID lớp học vào localStorage
+  localStorage.setItem('className', classItem.className); // Lưu tên lớp học vào localStorage
+};
 
+// Hàm đóng overlay
 function closeOverlay() {
-  emit('close');
-  isMember.value = false;
+  emit('close'); // Phát sự kiện đóng
+  isMember.value = false; // Đặt lại trạng thái thành viên
 }
 
+// Hàm chuyển tab
 const switchTab = (tabName) => {
-  activeTab.value = tabName;
-  // Nếu chuyển tab, xóa giá trị tìm kiếm và làm mới dữ liệu
+  activeTab.value = tabName; // Cập nhật tab hiện tại
   if (tabName === "User Management") {
-    search.value = "";
+    search.value = ""; // Xóa giá trị tìm kiếm
   } else {
-    const token = localStorage.getItem("token");
-    // Reset to page 0 when switching tabs
-    setsPage.value = 0;
-    classesPage.value = 0;
-    fetchData(token);
+    const token = localStorage.getItem("token"); // Lấy token từ localStorage
+    setsPage.value = 0; // Reset trang của bộ flashcard
+    classesPage.value = 0; // Reset trang của lớp học
+    fetchData(token); // Làm mới dữ liệu
   }
-}
+};
 
-// Hàm tìm kiếm mới
+// Hàm tìm kiếm
 const handleSearch = () => {
-  const token = localStorage.getItem("token");
-  // Reset về trang đầu tiên khi tìm kiếm
-  setsPage.value = 0;
-  classesPage.value = 0;
-  fetchData(token);
-}
+  const token = localStorage.getItem("token"); // Lấy token từ localStorage
+  setsPage.value = 0; // Reset trang của bộ flashcard
+  classesPage.value = 0; // Reset trang của lớp học
+  fetchData(token); // Làm mới dữ liệu
+};
 
-// Hàm dùng khi nhấn Enter trong input tìm kiếm
+// Hàm xử lý khi nhấn Enter trong input tìm kiếm
 const handleKeyDown = (event) => {
   if (event.key === 'Enter') {
-    handleSearch();
+    handleSearch(); // Gọi hàm tìm kiếm
   }
-}
+};
 
 // Hàm kiểm tra xem có hiển thị thanh tìm kiếm hay không
 const showSearchBar = () => {
-  return activeTab.value !== "User Management";
-}
+  return activeTab.value !== "User Management"; // Hiển thị thanh tìm kiếm nếu không phải tab User Management
+};
 </script>
 
 <template>

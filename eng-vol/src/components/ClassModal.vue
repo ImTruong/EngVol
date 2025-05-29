@@ -1,149 +1,156 @@
 <script setup>
-  import {onMounted, defineProps, defineEmits, ref, watch, onUnmounted} from 'vue';
-  import SetBox from './SetBox.vue';
-  import OverlayBackground from './OverlayBackground.vue';
-  import ClassTable from './ClassTable.vue';
-  import SetTable from '../components/SetTable.vue';
-  import { leaveClass } from '@/apis/classApi';
-  import {getSetByClassId, getSetsByName} from '@/apis/setApi';
-  import { deleteClass } from '@/apis/classApi';
+import { onMounted, defineProps, defineEmits, ref, watch, onUnmounted } from 'vue';
+import SetBox from './SetBox.vue';
+import OverlayBackground from './OverlayBackground.vue';
+import ClassTable from './ClassTable.vue';
+import SetTable from '../components/SetTable.vue';
+import { leaveClass, deleteClass } from '@/apis/classApi';
+import { getSetByClassId, getSetsByName } from '@/apis/setApi';
 
-  const classTable = ref(false);
-  const sets = ref([]);
-  const filteredSets = ref([]);
-  const visible = ref(true);
-  const isEditMode = ref(false);
-  const existingClass = ref({});
-  let className = localStorage.getItem('className');
-  const classId = localStorage.getItem('classId');
-  const setTable = ref(false);
-  const existingSet = ref(null);
-  const { Overlay_background } = defineProps(['Overlay_background']);
-  const emit = defineEmits(['close', 'reload']);
-  const inClass = ref(true);
-  const icon = ref(false);
-  const search = ref("");
-  const page = ref(0);
-  const size = ref(6); // Số set hiển thị trên một trang
-  const totalPages = ref(1);
-  const totalSets = ref(0);
-  const loading = ref(false);
+// Khởi tạo các biến reactive
+const classTable = ref(false); // Trạng thái hiển thị bảng lớp học
+const sets = ref([]); // Danh sách các bộ flashcard
+const filteredSets = ref([]); // Danh sách bộ flashcard đã lọc (chưa sử dụng)
+const visible = ref(true); // Trạng thái hiển thị overlay chính
+const isEditMode = ref(false); // Chế độ chỉnh sửa bộ flashcard
+const existingClass = ref({}); // Thông tin lớp học hiện tại
+let className = localStorage.getItem('className'); // Tên lớp từ localStorage
+const classId = localStorage.getItem('classId'); // ID lớp từ localStorage
+const setTable = ref(false); // Trạng thái hiển thị bảng bộ flashcard
+const existingSet = ref(null); // Bộ flashcard đang chỉnh sửa (chưa sử dụng)
+const { Overlay_background } = defineProps(['Overlay_background']); // Props nhận Overlay_background
+const emit = defineEmits(['close', 'reload']); // Sự kiện emit: đóng overlay, tải lại
+const inClass = ref(true); // Kiểm tra người dùng có trong lớp không
+const icon = ref(false); // Trạng thái hiển thị icon (chưa rõ mục đích)
+const search = ref(""); // Từ khóa tìm kiếm bộ flashcard
+const page = ref(0); // Trang hiện tại của danh sách bộ flashcard
+const size = ref(6); // Số bộ flashcard mỗi trang
+const totalPages = ref(1); // Tổng số trang
+const totalSets = ref(0); // Tổng số bộ flashcard
+const loading = ref(false); // Trạng thái đang tải dữ liệu
 
-  function closeOverlay() {
-    emit('close');
+// Hàm đóng overlay
+function closeOverlay() {
+  emit('close'); // Phát sự kiện đóng overlay
+}
+
+// Hàm hiển thị bảng lớp học
+const showClassTable = (classItem) => {
+  classTable.value = true; // Hiện bảng lớp học
+  visible.value = false; // Ẩn overlay chính
+  icon.value = false; // Ẩn icon
+  existingClass.value = classItem; // Lưu thông tin lớp được chọn
+};
+
+// Hàm đóng bảng lớp học
+const closeClassTable = () => {
+  classTable.value = false; // Ẩn bảng lớp học
+  visible.value = true; // Hiện lại overlay chính
+};
+
+// Theo dõi thay đổi từ khóa tìm kiếm
+watch(search, async () => {
+  page.value = 0; // Reset về trang đầu khi tìm kiếm
+  await fetchSets(); // Tải lại danh sách bộ flashcard
+});
+
+// Hàm rời khỏi lớp học
+const handleLeaveClass = async () => {
+  const token = localStorage.getItem('token'); // Lấy token xác thực
+  try {
+    const response = await leaveClass(classId, token); // Gọi API rời lớp
+    alert(response); // Hiển thị thông báo từ API
+    emit("close"); // Đóng overlay
+    emit('reload'); // Phát sự kiện tải lại
+  } catch (error) {
+    console.log(error);
+    alert(error); // Hiển thị lỗi
   }
+};
 
-  const showClassTable = (classItem) => {
-    classTable.value = true;
-    visible.value = false;
-    icon.value = false;
-    existingClass.value = classItem;
-  };
+// Hàm xóa lớp học
+const handleDeleteClass = async () => {
+  const token = localStorage.getItem('token'); // Lấy token xác thực
+  try {
+    const response = await deleteClass(token, classId); // Gọi API xóa lớp
+    alert(response); // Hiển thị thông báo từ API
+    emit("close"); // Đóng overlay
+    emit('reload'); // Phát sự kiện tải lại
+  } catch (error) {
+    console.log(error);
+    alert(error); // Hiển thị lỗi
+  }
+};
 
-  const closeClassTable = () => {
-    classTable.value = false;
-    visible.value = true;
-  };
+// Hàm hiển thị bảng bộ flashcard
+const showSetTable = (editMode = false) => {
+  isEditMode.value = editMode; // Cập nhật chế độ chỉnh sửa
+  setTable.value = true; // Hiện bảng bộ flashcard
+  icon.value = false; // Ẩn icon
+  // Lưu ý: existingClass.value = classItem gây lỗi vì classItem không được định nghĩa
+};
 
-  watch(search, async () => {
-    page.value = 0; // Reset về trang đầu tiên khi tìm kiếm
-    await fetchSets();
-  });
-
-  const handleLeaveClass = async () => {
-    const token = localStorage.getItem('token');
-    try {
-      const response = await leaveClass(classId, token);
-      alert(response);
-      emit("close");
-      emit('reload');
-    } catch (error) {
-      console.log(error)
-      alert(error);
+// Hàm lấy danh sách bộ flashcard
+const fetchSets = async () => {
+  const token = localStorage.getItem('token'); // Lấy token xác thực
+  loading.value = true; // Bắt đầu tải
+  try {
+    let response;
+    if (search.value) {
+      // Tìm kiếm bộ flashcard theo tên
+      response = await getSetsByName(search.value.toLowerCase(), token, page.value, size.value, classId);
+    } else {
+      // Lấy tất cả bộ flashcard của lớp
+      response = await getSetByClassId(classId, token, page.value, size.value);
     }
-  };
 
-  const handleDeleteClass = async () => {
-    const token = localStorage.getItem('token');
-    try {
-      const response = await deleteClass(token, classId);
-      alert(response);
-      emit("close");
-      emit('reload')
-    } catch (error) {
-      console.log(error)
-      alert(error);
-    }
-  };
-
-  const showSetTable = (editMode = false) => {
-    isEditMode.value = editMode;
-    setTable.value = true;
-    icon.value = false;
-    existingClass.value = classItem;
-  };
-
-  const fetchSets = async () => {
-    const token = localStorage.getItem('token');
-    loading.value = true;
-    try {
-      let response;
-      if (search.value) {
-        response = await getSetsByName(search.value.toLowerCase(), token, page.value, size.value, classId);
-      } else {
-        response = await getSetByClassId(classId, token, page.value, size.value);
+    // Giả sử response có cấu trúc Page<SetResponse> { content, totalElements, totalPages, number }
+    if (response && typeof response === 'object') {
+      sets.value = response.content || []; // Gán danh sách bộ flashcard
+      totalSets.value = response.totalElements || 0; // Cập nhật tổng số bộ
+      totalPages.value = response.totalPages || 1; // Cập nhật tổng số trang
+      if (response.number !== undefined) {
+        page.value = response.number; // Đồng bộ trang hiện tại
       }
-
-      // Giả sử response là Page<SetResponse> có cấu trúc như sau:
-      // { content: [...], totalElements, totalPages, number, ... }
-      if (response && typeof response === 'object') {
-        // Lấy nội dung sets từ response
-        sets.value = response.content || [];
-
-        // Cập nhật thông tin phân trang
-        totalSets.value = response.totalElements || 0;
-        totalPages.value = response.totalPages || 1;
-
-        // Đảm bảo page hiện tại khớp với response
-        // response.number là page hiện tại (zero-based)
-        if (response.number !== undefined) {
-          page.value = response.number;
-        }
-      } else {
-        console.error("Unexpected API response format", response);
-        sets.value = Array.isArray(response) ? response : [];
-      }
-    } catch (error) {
-      console.error("Error fetching sets:", error);
-      alert("Failed to load sets");
-    } finally {
-      loading.value = false;
+    } else {
+      console.error("Định dạng phản hồi API không đúng", response);
+      sets.value = Array.isArray(response) ? response : []; // Xử lý trường hợp bất ngờ
     }
-  };
+  } catch (error) {
+    console.error("Lỗi khi lấy danh sách bộ flashcard:", error);
+    alert("Lỗi khi tải danh sách bộ flashcard");
+  } finally {
+    loading.value = false; // Kết thúc tải
+  }
+};
 
-  const goToNextPage = () => {
-    if (page.value < totalPages.value - 1) {
-      page.value++;
-      fetchSets();
-    }
-  };
+// Hàm chuyển sang trang tiếp theo
+const goToNextPage = () => {
+  if (page.value < totalPages.value - 1) {
+    page.value++; // Tăng trang
+    fetchSets(); // Tải lại danh sách
+  }
+};
 
-  const goToPrevPage = () => {
-    if (page.value > 0) {
-      page.value--;
-      fetchSets();
-    }
-  };
+// Hàm chuyển về trang trước
+const goToPrevPage = () => {
+  if (page.value > 0) {
+    page.value--; // Giảm trang
+    fetchSets(); // Tải lại danh sách
+  }
+};
 
-  const handleReload = async () => {
-    await fetchSets();
-    await emit('reload')
-    className = localStorage.getItem('className');
-  };
+// Hàm tải lại dữ liệu
+const handleReload = async () => {
+  await fetchSets(); // Tải lại danh sách bộ flashcard
+  await emit('reload'); // Phát sự kiện reload
+  className = localStorage.getItem('className'); // Cập nhật tên lớp
+};
 
-  onMounted(() => {
-    fetchSets();
-  });
+// Khi component được mount
+onMounted(() => {
+  fetchSets(); // Tải danh sách bộ flashcard ban đầu
+});
 </script>
 
 <template>

@@ -1,104 +1,105 @@
 <script setup>
-    import { ref, watch, defineProps, computed, onMounted} from 'vue';
-    import { RouterLink } from 'vue-router';
-    import SetTable from "../components/SetTable.vue"
-    import OverlayBackground from "../components/OverlayBackground.vue";
-    import SeachBar from './SeachBar.vue';
-    import ClassTable from './ClassTable.vue';
-    import NotificationList from './NotificationList.vue'
-    import { useStore } from 'vuex';
+import { ref, watch, defineProps, computed, onMounted } from 'vue'; // Import các hàm reactive và lifecycle hooks từ Vue
+import { RouterLink } from 'vue-router'; // Import RouterLink để điều hướng giữa các trang
+import SetTable from "../components/SetTable.vue"; // Import component SetTable để hiển thị bảng thông tin bộ flashcard
+import OverlayBackground from "../components/OverlayBackground.vue"; // Import component OverlayBackground để hiển thị nền overlay
+import SeachBar from './SeachBar.vue'; // Import component SeachBar để thực hiện tìm kiếm
+import ClassTable from './ClassTable.vue'; // Import component ClassTable để hiển thị bảng thông tin lớp học
+import NotificationList from './NotificationList.vue'; // Import component NotificationList để hiển thị danh sách thông báo
+import { useStore } from 'vuex'; // Import Vuex để quản lý trạng thái toàn cục
 
-    const emit = defineEmits([
-        'reload'
-    ]);
-    const store = useStore();
-    const props = defineProps({
-    recentSets: {
-        type: Array,
-        default: () => [], 
-    },
-    ownerSets: {
-        type: Array,
-        default: () => [],
-    },
-    publicSets: {
-        type: Array,
-        default: () => [],
-    },
-    });
-    const setsData = ref([...props.recentSets, ...props.ownerSets, ...props.publicSets]);
-    watch(() => [props.recentSets, props.ownerSets, props.publicSets], () => {
-    setsData.value = [...props.recentSets, ...props.ownerSets, ...props.publicSets];
-    });
+// Định nghĩa các sự kiện phát ra từ component
+const emit = defineEmits(['reload']); // Sự kiện reload để làm mới dữ liệu
 
-    const isEditMode = ref(false);
-    const existingSet = ref(null);
-    const menuOpen = ref(false);    
-    const showNotifications = ref(false)
-    const setTable = ref(false)
-    const searchQuery = ref("")
-    const Overlay_background = ref("false");
-    const showSearch = ref(false)
-    const searchItem = ref("")
-    const newItem = ref(false);
-    const classTable = ref(false)
-    const token = localStorage.getItem('token');
+// Khởi tạo store để truy cập trạng thái toàn cục
+const store = useStore();
 
-    const reload = () => {
-        emit('reload');
-    };
+// Định nghĩa các props được truyền vào component
+const props = defineProps({
+  recentSets: { type: Array, default: () => [] }, // Danh sách bộ flashcard gần đây
+  ownerSets: { type: Array, default: () => [] }, // Danh sách bộ flashcard của người dùng
+  publicSets: { type: Array, default: () => [] }, // Danh sách bộ flashcard công khai
+});
 
-    const toggleMenu = () => {
-        menuOpen.value = !menuOpen.value;
-    };
+// Biến reactive để quản lý trạng thái và dữ liệu
+const setsData = ref([...props.recentSets, ...props.ownerSets, ...props.publicSets]); // Tổng hợp danh sách bộ flashcard
+watch(() => [props.recentSets, props.ownerSets, props.publicSets], () => {
+  setsData.value = [...props.recentSets, ...props.ownerSets, ...props.publicSets]; // Cập nhật danh sách khi props thay đổi
+});
 
-    const toggleNotifications = () => {
-        if (token == null) {
-            alert('Login to use this feature');
-            window.location.href = '/login';
-        }
-        else{
-            showNotifications.value = !showNotifications.value;
-        }
-    }
+const isEditMode = ref(false); // Trạng thái chỉnh sửa
+const existingSet = ref(null); // Bộ flashcard hiện tại
+const menuOpen = ref(false); // Trạng thái mở menu
+const showNotifications = ref(false); // Trạng thái hiển thị thông báo
+const setTable = ref(false); // Trạng thái hiển thị bảng flashcard
+const searchQuery = ref(""); // Từ khóa tìm kiếm
+const Overlay_background = ref("false"); // Trạng thái hiển thị nền overlay
+const showSearch = ref(false); // Trạng thái hiển thị tìm kiếm
+const searchItem = ref(""); // Từ khóa tìm kiếm
+const newItem = ref(false); // Trạng thái hiển thị menu tạo mới
+const classTable = ref(false); // Trạng thái hiển thị bảng lớp học
+const token = localStorage.getItem('token'); // Lấy token từ localStorage
 
-    const showClassTable = () =>{
-        if (token == null) {
-            alert('Login to use this feature');
-            window.location.href = '/login';
-        }
-        else{
-          classTable.value = !classTable.value;
-          newItem.value = !newItem;
-        }
+// Hàm reload dữ liệu
+const reload = () => {
+  emit('reload'); // Phát sự kiện reload
+};
 
-    }
-    const performSearch = (query) => {
-        showSearch.value = true;
-        Overlay_background.value = true;
-        searchItem.value = query;
-    };
+// Hàm bật/tắt menu
+const toggleMenu = () => {
+  menuOpen.value = !menuOpen.value; // Thay đổi trạng thái menu
+};
 
-    const showSetTable = (editMode = false) => {
-        if (token == null) {
-            alert('Login to use this feature');
-            window.location.href = '/login';
-        }
-        else{
-          isEditMode.value = editMode;
-          setTable.value = true; // Hiển thị SetTable
-        }
+// Hàm bật/tắt thông báo
+const toggleNotifications = () => {
+  if (token == null) { // Kiểm tra nếu người dùng chưa đăng nhập
+    alert('Login to use this feature'); // Hiển thị thông báo yêu cầu đăng nhập
+    window.location.href = '/login'; // Điều hướng đến trang đăng nhập
+  } else {
+    showNotifications.value = !showNotifications.value; // Thay đổi trạng thái hiển thị thông báo
+  }
+};
 
-    };
+// Hàm hiển thị bảng lớp học
+const showClassTable = () => {
+  if (token == null) { // Kiểm tra nếu người dùng chưa đăng nhập
+    alert('Login to use this feature'); // Hiển thị thông báo yêu cầu đăng nhập
+    window.location.href = '/login'; // Điều hướng đến trang đăng nhập
+  } else {
+    classTable.value = !classTable.value; // Thay đổi trạng thái hiển thị bảng lớp học
+    newItem.value = !newItem; // Thay đổi trạng thái menu tạo mới
+  }
+};
 
-    const handleSet = (data) => {
-        existingSet.value = data;
-    }
-    watch(menuOpen, (newValue) => {
-        if (!newValue) {
-        showNotifications.value = false; 
-        }
-    });
+// Hàm thực hiện tìm kiếm
+const performSearch = (query) => {
+  showSearch.value = true; // Hiển thị tìm kiếm
+  Overlay_background.value = true; // Hiển thị nền overlay
+  searchItem.value = query; // Cập nhật từ khóa tìm kiếm
+};
+
+// Hàm hiển thị bảng flashcard
+const showSetTable = (editMode = false) => {
+  if (token == null) { // Kiểm tra nếu người dùng chưa đăng nhập
+    alert('Login to use this feature'); // Hiển thị thông báo yêu cầu đăng nhập
+    window.location.href = '/login'; // Điều hướng đến trang đăng nhập
+  } else {
+    isEditMode.value = editMode; // Cập nhật trạng thái chỉnh sửa
+    setTable.value = true; // Hiển thị bảng flashcard
+  }
+};
+
+// Hàm xử lý bộ flashcard
+const handleSet = (data) => {
+  existingSet.value = data; // Cập nhật bộ flashcard hiện tại
+};
+
+// Theo dõi trạng thái menu
+watch(menuOpen, (newValue) => {
+  if (!newValue) {
+    showNotifications.value = false; // Ẩn thông báo khi menu đóng
+  }
+});
 </script>
 
 <template>

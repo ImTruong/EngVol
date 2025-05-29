@@ -1,117 +1,133 @@
 <script setup>
-import ClassModal from '@/components/ClassModal.vue'
+import ClassModal from '@/components/ClassModal.vue';
 import JoinBox from './JoinBox.vue';
-import SetBox from "./SetBox.vue"
+import SetBox from "./SetBox.vue";
 import ClassTable from './ClassTable.vue';
 import { checkClassBelonging } from "@/apis/classApi.js";
 import { ref, computed } from "vue";
 
+// Trạng thái hiển thị modal chi tiết lớp học
 const classModalMode = ref(false);
+// Trạng thái hiển thị bảng danh sách lớp học
 const classTableMode = ref(false);
+// Trạng thái hiển thị modal tham gia lớp học
 const joinMode = ref(false);
+// Tab hiện tại (mặc định là "Flashcard sets", có thể chuyển sang "Classes")
 const activeTab = ref("Flashcard sets");
+// Lưu thông tin lớp học được chọn
 const selectedClassItem = ref("");
+// Kiểm tra xem người dùng có phải thành viên của lớp học không
 const isMember = ref(false);
 
+// Định nghĩa props nhận từ component cha
 const props = defineProps({
-  sets: Array,
-  classes: Array,
-  setsPage: Number,
-  setsTotalPages: Number,
-  setsTotalElements: Number,
-  classesPage: Number,
-  classesTotalPages: Number,
-  classesTotalElements: Number
+  sets: Array, // Danh sách các bộ flashcard
+  classes: Array, // Danh sách các lớp học
+  setsPage: Number, // Trang hiện tại của bộ flashcard
+  setsTotalPages: Number, // Tổng số trang của bộ flashcard
+  setsTotalElements: Number, // Tổng số bộ flashcard
+  classesPage: Number, // Trang hiện tại của lớp học
+  classesTotalPages: Number, // Tổng số trang của lớp học
+  classesTotalElements: Number // Tổng số lớp học
 });
 
-
+// Định nghĩa các sự kiện emit gửi lên component cha
 const emit = defineEmits([
-  'close',
-  'change-sets-page',
-  'change-classes-page',
-  'reload'
+  'close', // Đóng overlay
+  'change-sets-page', // Thay đổi trang của bộ flashcard
+  'change-classes-page', // Thay đổi trang của lớp học
+  'reload' // Tải lại dữ liệu
 ]);
 
+// Hàm chọn lớp học và kiểm tra tư cách thành viên
 const selectClass = async (classItem) => {
-  selectedClassItem.value = classItem;
-  localStorage.setItem('classId', selectedClassItem.value.classId);
-  localStorage.setItem('className', selectedClassItem.value.className);
+  selectedClassItem.value = classItem; // Lưu lớp học được chọn
+  localStorage.setItem('classId', selectedClassItem.value.classId); // Lưu ID lớp vào localStorage
+  localStorage.setItem('className', selectedClassItem.value.className); // Lưu tên lớp vào localStorage
   try {
+    // Kiểm tra xem người dùng có phải thành viên của lớp không
     isMember.value = await checkClassBelonging(selectedClassItem.value.classId, localStorage.getItem('token'));
-    joinMode.value = !isMember.value;
-  } catch(err) {
+    joinMode.value = !isMember.value; // Nếu không phải thành viên, hiển thị modal tham gia
+  } catch (err) {
+    // Xử lý lỗi khi gọi API
     console.error(err);
-    alert(err)
+    alert(err);
   }
-}
+};
 
+// Hàm hiển thị modal chi tiết lớp học
 const showClassModal = (classItem) => {
-  if(isMember) {
-    classModalMode.value = true;
-    selectClass(classItem);
+  if (isMember.value) { // Chỉ hiển thị nếu là thành viên
+    classModalMode.value = true; // Hiện modal chi tiết
+    selectClass(classItem); // Chọn lớp học
   }
-}
+};
 
+// Hàm tải lại dữ liệu và cập nhật lớp học được chọn
 const reload = async () => {
-  await emit('reload');
-  const classId = localStorage.getItem('classId')
+  await emit('reload'); // Phát sự kiện reload để component cha tải lại dữ liệu
+  const classId = localStorage.getItem('classId'); // Lấy ID lớp từ localStorage
   for (let i = 0; i < props.classes.length; i++) {
     if (props.classes[i].classId === classId) {
-      selectedClassItem.value = props.classes[i];
-      localStorage.setItem('className', selectedClassItem.value.className);
+      selectedClassItem.value = props.classes[i]; // Cập nhật lớp được chọn
+      localStorage.setItem('className', selectedClassItem.value.className); // Cập nhật tên lớp
       break;
     }
   }
-}
+};
 
+// Hàm đóng overlay
 function closeOverlay() {
-  emit('close');
-  isMember.value = false;
+  emit('close'); // Phát sự kiện đóng overlay
+  isMember.value = false; // Đặt lại trạng thái thành viên
 }
 
+// Hàm chuyển đổi tab (Flashcard sets <-> Classes)
 const switchTab = () => {
   activeTab.value = activeTab.value === "Flashcard sets" ? "Classes" : "Flashcard sets";
-}
+};
 
-// Hàm xử lý phân trang
+// Hàm xử lý thay đổi trang của bộ flashcard
 const handleSetsPageChange = (newPage) => {
-  emit('change-sets-page', newPage);
-}
+  emit('change-sets-page', newPage); // Phát sự kiện thay đổi trang
+};
 
+// Hàm xử lý thay đổi trang của lớp học
 const handleClassesPageChange = (newPage) => {
-  emit('change-classes-page', newPage);
-}
+  emit('change-classes-page', newPage); // Phát sự kiện thay đổi trang
+};
 
-// Tạo mảng các trang để hiển thị
+// Tạo mảng số trang cho bộ flashcard
 const setSetsPageNumbers = computed(() => {
-  if (!props.setsTotalPages) return [];
-  const totalPages = props.setsTotalPages;
-  const currentPage = props.setsPage;
+  if (!props.setsTotalPages) return []; // Nếu không có trang, trả về rỗng
+  const totalPages = props.setsTotalPages; // Tổng số trang
+  const currentPage = props.setsPage; // Trang hiện tại
   const pageNumbers = [];
 
-  // Logic tạo các nút trang
-  const start = Math.max(0, currentPage - 2);
-  const end = Math.min(totalPages, currentPage + 3);
+  // Tạo danh sách số trang (hiển thị tối đa 5 trang gần trang hiện tại)
+  const start = Math.max(0, currentPage - 2); // Bắt đầu từ trang hiện tại - 2
+  const end = Math.min(totalPages, currentPage + 3); // Kết thúc ở trang hiện tại + 2
 
   for (let i = start; i < end; i++) {
-    pageNumbers.push(i);
+    pageNumbers.push(i); // Thêm số trang vào mảng
   }
 
   return pageNumbers;
 });
 
+// Tạo mảng số trang cho lớp học
 const setClassPageNumbers = computed(() => {
-  if (!props.classesTotalPages) return [];
-  const totalPages = props.classesTotalPages;
-  const currentPage = props.classesPage;
+  if (!props.classesTotalPages) return []; // Nếu không có trang, trả về rỗng
+  const totalPages = props.classesTotalPages; // Tổng số trang
+  const currentPage = props.classesPage; // Trang hiện tại
   const pageNumbers = [];
 
-  // Logic tạo các nút trang
-  const start = Math.max(0, currentPage - 2);
-  const end = Math.min(totalPages, currentPage + 3);
+  // Tạo danh sách số trang (hiển thị tối đa 5 trang gần trang hiện tại)
+  const start = Math.max(0, currentPage - 2); // Bắt đầu từ trang hiện tại - 2
+  const end = Math.min(totalPages, currentPage + 3); // Kết thúc ở trang hiện tại + 2
 
   for (let i = start; i < end; i++) {
-    pageNumbers.push(i);
+    pageNumbers.push(i); // Thêm số trang vào mảng
   }
 
   return pageNumbers;

@@ -1,92 +1,107 @@
 <script setup>
-import { ref, defineEmits, defineProps, computed, onMounted } from 'vue';
-import OverlayBackground from '../components/OverlayBackground.vue';
-import ImageCard from './ImageCard.vue';
-import { getSetByRequestId, acceptSetRequest, rejectSetRequest } from '@/apis/setApi';
+import { ref, defineEmits, defineProps, computed, onMounted } from 'vue'; // Import các hàm reactive và lifecycle hooks từ Vue
+import OverlayBackground from '../components/OverlayBackground.vue'; // Import component OverlayBackground để hiển thị nền overlay
+import ImageCard from './ImageCard.vue'; // Import component ImageCard để hiển thị hình ảnh
+import { getSetByRequestId, acceptSetRequest, rejectSetRequest } from '@/apis/setApi'; // Import các API liên quan đến bộ flashcard
 
+// Định nghĩa sự kiện phát ra từ component
 const emit = defineEmits(['close']);
-const { requestId } = defineProps(['requestId']);
-const existingSet = ref('');
-const visible = ref(true);
-const setName = ref('');
-const rows = ref([]);
-const showOptions = ref(false);
-const selectedOption = ref('');
-const dropdownRef = ref(null);
-const classId = ref('');
-const isSearchVisible = ref(false);
-const searchTerm = ref('');
-const showImg = ref(false);
-const image = ref("");
 
+// Định nghĩa các props được truyền vào component
+const { requestId } = defineProps(['requestId']);
+
+// Biến reactive để quản lý trạng thái và dữ liệu
+const existingSet = ref(''); // Bộ flashcard hiện tại
+const visible = ref(true); // Trạng thái hiển thị của form
+const setName = ref(''); // Tên của bộ flashcard
+const rows = ref([]); // Danh sách các từ trong bộ flashcard
+const showOptions = ref(false); // Trạng thái hiển thị menu tùy chọn
+const selectedOption = ref(''); // Tùy chọn quyền riêng tư của bộ flashcard
+const dropdownRef = ref(null); // Tham chiếu đến menu dropdown
+const classId = ref(''); // ID của lớp học
+const isSearchVisible = ref(false); // Trạng thái hiển thị tìm kiếm
+const searchTerm = ref(''); // Từ khóa tìm kiếm
+const showImg = ref(false); // Trạng thái hiển thị hình ảnh
+const image = ref(""); // URL hình ảnh
+
+// Hàm đóng form
 const closeForm = () => {
-  visible.value = false;
-  emit('close');
+  visible.value = false; // Ẩn form
+  emit('close'); // Phát sự kiện đóng
 };
 
+// Hàm lấy thông tin bộ flashcard theo ID yêu cầu
 const fetchSetById = async () => {
   try {
-    const token = localStorage.getItem('token');
-    const response = await getSetByRequestId(requestId, token);
-    existingSet.value = response.data;
-    setName.value = existingSet.value.name || '';
-    rows.value = existingSet.value.wordResponses || [];
-    selectedOption.value = existingSet.value.privacyStatus || '';
+    const token = localStorage.getItem('token'); // Lấy token từ localStorage
+    const response = await getSetByRequestId(requestId, token); // Gọi API để lấy thông tin bộ flashcard
+    existingSet.value = response.data; // Lưu thông tin bộ flashcard
+    setName.value = existingSet.value.name || ''; // Cập nhật tên bộ flashcard
+    rows.value = existingSet.value.wordResponses || []; // Cập nhật danh sách từ
+    selectedOption.value = existingSet.value.privacyStatus || ''; // Cập nhật trạng thái quyền riêng tư
   } catch (error) {
-    alert(error)
+    alert(error); // Hiển thị lỗi nếu có
   }
 };
 
+// Hàm chấp nhận yêu cầu
 const acceptAction = async () => {
   try {
-    const token = localStorage.getItem('token');
-    const response = await acceptSetRequest(requestId, token);
-    alert(response.message);
-    closeForm();
+    const token = localStorage.getItem('token'); // Lấy token từ localStorage
+    const response = await acceptSetRequest(requestId, token); // Gọi API để chấp nhận yêu cầu
+    alert(response.message); // Hiển thị thông báo thành công
+    closeForm(); // Đóng form
   } catch (error) {
-    alert(error)
+    alert(error); // Hiển thị lỗi nếu có
   }
 };
 
+// Hàm từ chối yêu cầu
 const rejectAction = async () => {
   try {
-    const token = localStorage.getItem('token');
-    const response = await rejectSetRequest(requestId, token);
-    alert(response.message);
-    closeForm();
+    const token = localStorage.getItem('token'); // Lấy token từ localStorage
+    const response = await rejectSetRequest(requestId, token); // Gọi API để từ chối yêu cầu
+    alert(response.message); // Hiển thị thông báo thành công
+    closeForm(); // Đóng form
   } catch (error) {
-    alert(error)
+    alert(error); // Hiển thị lỗi nếu có
   }
 };
 
+// Hàm bật/tắt menu tùy chọn
 const toggleOptions = () => {
-  showOptions.value = !showOptions.value;
+  showOptions.value = !showOptions.value; // Thay đổi trạng thái hiển thị menu
 };
 
+// Hàm bật/tắt tìm kiếm
 const toggleSearch = () => {
-  isSearchVisible.value = !isSearchVisible.value;
+  isSearchVisible.value = !isSearchVisible.value; // Thay đổi trạng thái hiển thị tìm kiếm
 };
 
+// Hàm lọc danh sách từ theo từ khóa tìm kiếm
 const filteredRows = computed(() => {
   if (!isSearchVisible.value || !searchTerm.value.trim()) {
-    return rows.value;
+    return rows.value; // Trả về danh sách gốc nếu không có từ khóa tìm kiếm
   }
-  return rows.value.filter(row => row.word.toLowerCase().includes(searchTerm.value.toLowerCase().trim()));
+  return rows.value.filter(row => row.word.toLowerCase().includes(searchTerm.value.toLowerCase().trim())); // Lọc danh sách từ
 });
 
+// Hàm mở hình ảnh
 const openImage = (img) => {
-  showImg.value = true;
-  image.value = img;
-  visible.value = false;
+  showImg.value = true; // Hiển thị hình ảnh
+  image.value = img; // Cập nhật URL hình ảnh
+  visible.value = false; // Ẩn form
 };
 
+// Hàm đóng hình ảnh
 const closeImage = () => {
-  showImg.value = false;
-  visible.value = true;
+  showImg.value = false; // Ẩn hình ảnh
+  visible.value = true; // Hiển thị lại form
 };
 
+// Lifecycle hook khi component được mount
 onMounted(() => {
-  fetchSetById();
+  fetchSetById(); // Lấy thông tin bộ flashcard khi component được mount
 });
 </script>
 

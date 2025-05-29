@@ -1,108 +1,111 @@
 <script setup>
-import { defineProps, defineEmits, onMounted, watch } from 'vue';
-import { ref } from 'vue';
-import LibraryBody from './LibraryBody.vue';
-import { getClassesByName } from '@/apis/classApi';
-import { getSetsByName, getAllPublicSet } from '@/apis/setApi';
-import OverlayBackground from './OverlayBackground.vue';
+import { defineProps, defineEmits, onMounted, watch } from 'vue'; // Import các hàm reactive và lifecycle hooks từ Vue
+import { ref } from 'vue'; // Import hàm ref để tạo biến reactive
+import LibraryBody from './LibraryBody.vue'; // Import component LibraryBody để hiển thị nội dung thư viện
+import { getClassesByName } from '@/apis/classApi'; // Import API để lấy danh sách lớp học theo tên
+import { getSetsByName, getAllPublicSet } from '@/apis/setApi'; // Import API để lấy danh sách bộ flashcard theo tên hoặc danh sách công khai
+import OverlayBackground from './OverlayBackground.vue'; // Import component OverlayBackground để hiển thị nền overlay
 
+// Định nghĩa các props được truyền vào component
+const { searchQuery, Overlay_background } = defineProps(['searchQuery', 'Overlay_background']);
 
-const {searchQuery, Overlay_background } = defineProps(['searchQuery', 'Overlay_background']);
+// Biến reactive để quản lý phân trang cho bộ flashcard
+const sets = ref([]); // Danh sách bộ flashcard
+const setsPage = ref(0); // Trang hiện tại của bộ flashcard
+const setsSize = ref(10); // Số lượng bộ flashcard trên mỗi trang
+const setsTotalPages = ref(0); // Tổng số trang của bộ flashcard
+const setsTotalElements = ref(0); // Tổng số bộ flashcard
 
-// Sets pagination
-const sets = ref([]);
-const setsPage = ref(0);
-const setsSize = ref(10);
-const setsTotalPages = ref(0);
-const setsTotalElements = ref(0);
+// Biến reactive để quản lý phân trang cho lớp học
+const classes = ref([]); // Danh sách lớp học
+const classesPage = ref(0); // Trang hiện tại của lớp học
+const classesSize = ref(10); // Số lượng lớp học trên mỗi trang
+const classesTotalPages = ref(0); // Tổng số trang của lớp học
+const classesTotalElements = ref(0); // Tổng số lớp học
 
-// Classes pagination
-const classes = ref([]);
-const classesPage = ref(0);
-const classesSize = ref(10);
-const classesTotalPages = ref(0);
-const classesTotalElements = ref(0);
+const token = localStorage.getItem('token'); // Lấy token từ localStorage
 
-const token = localStorage.getItem('token');
+const emit = defineEmits(); // Định nghĩa các sự kiện phát ra từ component
 
-const emit = defineEmits();
-
-function closeOverlay(){
-  emit('close');
+// Hàm đóng overlay
+function closeOverlay() {
+  emit('close'); // Phát sự kiện đóng overlay
 }
 
+// Hàm lấy danh sách lớp học từ API
 async function getClasses() {
-  try{
-    const classesData = await getClassesByName(searchQuery, token, classesPage.value, classesSize.value);
-    classes.value = classesData.content;
-    classesTotalPages.value = classesData.totalPages;
-    classesTotalElements.value = classesData.totalElements;
-  }
-  catch(e){
-    console.log(e);
-    alert(e);
+  try {
+    const classesData = await getClassesByName(searchQuery, token, classesPage.value, classesSize.value); // Gọi API để lấy danh sách lớp học
+    classes.value = classesData.content; // Lưu danh sách lớp học
+    classesTotalPages.value = classesData.totalPages; // Cập nhật tổng số trang
+    classesTotalElements.value = classesData.totalElements; // Cập nhật tổng số phần tử
+  } catch (e) {
+    console.log(e); // Log lỗi nếu có
+    alert(e); // Hiển thị thông báo lỗi
   }
 }
 
+// Hàm lấy danh sách bộ flashcard từ API
 async function getSets() {
-  try{
-    const setsData = await getSetsByName(searchQuery, token, setsPage.value, setsSize.value);
-    sets.value = setsData.content;
-    setsTotalPages.value = setsData.totalPages;
-    setsTotalElements.value = setsData.totalElements;
-  }
-  catch(e){
-    console.log(e);
-    alert(e);
+  try {
+    const setsData = await getSetsByName(searchQuery, token, setsPage.value, setsSize.value); // Gọi API để lấy danh sách bộ flashcard
+    sets.value = setsData.content; // Lưu danh sách bộ flashcard
+    setsTotalPages.value = setsData.totalPages; // Cập nhật tổng số trang
+    setsTotalElements.value = setsData.totalElements; // Cập nhật tổng số phần tử
+  } catch (e) {
+    console.log(e); // Log lỗi nếu có
+    alert(e); // Hiển thị thông báo lỗi
   }
 }
 
+// Hàm lấy danh sách bộ flashcard công khai cho khách
 async function getSetsForGuest() {
-  try{
-    const setsData = await getAllPublicSet(setsPage.value, setsSize.value, searchQuery);
-    sets.value = setsData.content;
-    setsTotalPages.value = setsData.totalPages;
-    setsTotalElements.value = setsData.totalElements;
-  }
-  catch(e){
-    console.log(e);
-    alert(e);
+  try {
+    const setsData = await getAllPublicSet(setsPage.value, setsSize.value, searchQuery); // Gọi API để lấy danh sách bộ flashcard công khai
+    sets.value = setsData.content; // Lưu danh sách bộ flashcard
+    setsTotalPages.value = setsData.totalPages; // Cập nhật tổng số trang
+    setsTotalElements.value = setsData.totalElements; // Cập nhật tổng số phần tử
+  } catch (e) {
+    console.log(e); // Log lỗi nếu có
+    alert(e); // Hiển thị thông báo lỗi
   }
 }
 
-// Pagination handlers
+// Hàm xử lý thay đổi trang của bộ flashcard
 const changeSetsPage = (newPage) => {
-  setsPage.value = newPage;
-  if(token != null) {
-    getSets();
+  setsPage.value = newPage; // Cập nhật trang hiện tại
+  if (token != null) {
+    getSets(); // Gọi hàm lấy danh sách bộ flashcard
   } else {
-    getSetsForGuest();
+    getSetsForGuest(); // Gọi hàm lấy danh sách bộ flashcard công khai
   }
 };
 
+// Hàm xử lý thay đổi trang của lớp học
 const changeClassesPage = (newPage) => {
-  classesPage.value = newPage;
-  getClasses();
+  classesPage.value = newPage; // Cập nhật trang hiện tại
+  getClasses(); // Gọi hàm lấy danh sách lớp học
 };
 
+// Theo dõi sự thay đổi của từ khóa tìm kiếm
 watch(
-    () => searchQuery,
+    () => searchQuery, // Theo dõi giá trị của searchQuery
     (newQuery) => {
-      // Reset pagination when search query changes
+      // Đặt lại phân trang khi từ khóa tìm kiếm thay đổi
       setsPage.value = 0;
       classesPage.value = 0;
 
-      getClasses();
-      if(token != null)
-        getSets();
-      else
-        getSetsForGuest();
-      console.log(sets.value)
-      console.log(classes.value)
+      getClasses(); // Gọi hàm lấy danh sách lớp học
+      if (token != null) {
+        getSets(); // Gọi hàm lấy danh sách bộ flashcard
+      } else {
+        getSetsForGuest(); // Gọi hàm lấy danh sách bộ flashcard công khai
+      }
+      console.log(sets.value); // Log danh sách bộ flashcard
+      console.log(classes.value); // Log danh sách lớp học
     },
-    { immediate: true }
+    { immediate: true } // Thực hiện ngay khi component được mount
 );
-
 </script>
 
 <template>
