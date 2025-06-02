@@ -56,11 +56,12 @@ const selectClass = async (classItem) => {
 };
 
 // Hàm hiển thị modal chi tiết lớp học
-const showClassModal = (classItem) => {
-  if (isMember.value) { // Chỉ hiển thị nếu là thành viên
-    classModalMode.value = true; // Hiện modal chi tiết
-    selectClass(classItem); // Chọn lớp học
+const showClassModal = async (classItem) => {
+  await selectClass(classItem); // Gọi trước để cập nhật isMember
+  if (isMember.value) {
+    classModalMode.value = true; // Hiển thị modal nếu là thành viên
   }
+  // joinMode đã được xử lý trong selectClass()
 };
 
 // Hàm tải lại dữ liệu và cập nhật lớp học được chọn
